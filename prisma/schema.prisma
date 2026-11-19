@@ -1,0 +1,136 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String         @id @default(cuid())
+  email        String         @unique
+  name         String?
+  password     String
+  role         String         @default("BUYER") // BUYER, VENDOR, ADMIN
+  xp           Int            @default(0)
+  badgesJson   String         @default("[]")
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  vendorProfile VendorProfile?
+  designs       Design[]
+  quotesSent    QuoteRequest[] @relation("BuyerQuotes")
+}
+
+model VendorProfile {
+  id              String           @id @default(cuid())
+  userId          String           @unique
+  companyName     String
+  contactEmail    String
+  phone           String?
+  city            String
+  leadDays        Int              @default(14)
+  warrantyYears   Int              @default(5)
+  rating          Float            @default(4.8)
+  isSponsored     Boolean          @default(false)
+  sponsoredBidAmt Float            @default(0.0)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rateCards      VendorRateCard[]
+  quotesReceived QuoteRequest[]   @relation("VendorQuotes")
+}
+
+model MasterElement {
+  id              String   @id @default(cuid())
+  category        String   // CABIN, DOOR, WINDOW, EQUIPMENT, STAIRS, POD
+  code            String   @unique
+  name            String
+  description     String?
+  mountZone       String?  // WALL_EXTERIOR, WALL_INTERIOR, ROOF_TOP, FLOOR_INTERIOR, PERIMETER_EDGE
+  dimensionsJson  String   // { width, height, length, weight }
+  baseCost        Float    @default(0)
+  threeConfigJson String?  // 3D procedural dimensions & shape parameters
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model MasterAttribute {
+  id           String   @id @default(cuid())
+  category     String   // GLASS_TYPE, FRAME_MATERIAL, BRAND, WALL_FINISH, SOLAR_CAPACITY
+  code         String   @unique
+  name         String
+  brand        String?  // Saint-Gobain, AIS, Daikin, Voltas, Tata Solar, etc.
+  specsJson    String?  // Specs: { uValue, shgc, powerW, btu, noiseDb, etc. }
+  shaderJson   String   // Three.js PBR shader: { roughness, metalness, color, transmission, ior, clearcoat, opacity }
+  costModifier Float    @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model VendorRateCard {
+  id                     String        @id @default(cuid())
+  vendorId               String
+  elementCode            String
+  baseUnitPrice          Float
+  attributeModifiersJson String        @default("{}") // { [attrCode]: modifierPrice }
+  leadTimeDays           Int           @default(14)
+  warrantyNotes          String?
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+
+  vendor VendorProfile @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@unique([vendorId, elementCode])
+}
+
+model Design {
+  id             String          @id @default(cuid())
+  userId         String
+  title          String
+  slug           String          @unique
+  description    String?
+  isPublic       Boolean         @default(false)
+  previewImage   String?
+  viewCount      Int             @default(0)
+  shareCount     Int             @default(0)
+  remixCount     Int             @default(0)
+  parentDesignId String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  versions DesignVersion[]
+  quotes   QuoteRequest[]
+}
+
+model DesignVersion {
+  id            String   @id @default(cuid())
+  designId      String
+  versionNumber Int      @default(1)
+  commitNote    String   @default("Initial layout")
+  sceneJson     String   // Full 3D cabin layout, equipment coordinates, attributes, environment
+  bomJson       String   // Bill of materials JSON with computed costs and counts
+  snapshotUrl   String?
+  createdAt     DateTime @default(now())
+
+  design Design @relation(fields: [designId], references: [id], onDelete: Cascade)
+}
+
+model QuoteRequest {
+  id              String        @id @default(cuid())
+  designId        String
+  buyerId         String
+  vendorId        String
+  status          String        @default("PENDING") // PENDING, NEGOTIATING, ACCEPTED, REJECTED
+  negotiatedTotal Float
+  messagesJson    String        @default("[]") // [{ id, sender: 'BUYER'|'VENDOR', text, timestamp, offerAmount }]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  design Design        @relation(fields: [designId], references: [id], onDelete: Cascade)
+  buyer  User          @relation("BuyerQuotes", fields: [buyerId], references: [id], onDelete: Cascade)
+  vendor VendorProfile @relation("VendorQuotes", fields: [vendorId], references: [id], onDelete: Cascade)
+}
