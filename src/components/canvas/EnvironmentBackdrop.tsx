@@ -32,9 +32,9 @@ export const EnvironmentBackdrop: React.FC<EnvironmentBackdropProps> = ({
     if (isNight) {
       return {
         ambient: "#091220",
-        ambientIntensity: 0.35,
-        sunColor: "#cbd5e1",
-        sunIntensity: 0.45,
+        ambientIntensity: 0.45,
+        sunColor: "#93c5fd",
+        sunIntensity: 0.6,
         sunPos: [15, 25, -20] as [number, number, number],
       };
     }
@@ -107,7 +107,7 @@ export const EnvironmentBackdrop: React.FC<EnvironmentBackdropProps> = ({
       {/* Soft Ground Bounce Fill Light */}
       <directionalLight
         position={[-15, -10, -15]}
-        intensity={isNight ? 0.1 : 0.4}
+        intensity={isNight ? 0.15 : 0.4}
         color={environment === "desert" ? "#e6c8a0" : "#a7c7e7"}
       />
 
@@ -122,6 +122,21 @@ export const EnvironmentBackdrop: React.FC<EnvironmentBackdropProps> = ({
           map={groundTexture}
           roughness={environment === "beach" ? 0.85 : 0.92}
           metalness={0.05}
+        />
+      </mesh>
+
+      {/* High-Tech Architectural Placement Grid & Radial Ring */}
+      <gridHelper
+        args={[30, 30, isNight ? "#38bdf8" : "#94a3b8", isNight ? "#1e293b" : "#cbd5e1"]}
+        position={[0, 0.005, 0]}
+      />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.006, 0]}>
+        <ringGeometry args={[11.8, 12.0, 64]} />
+        <meshBasicMaterial
+          color={isNight ? "#06b6d4" : "#64748b"}
+          transparent
+          opacity={isNight ? 0.35 : 0.25}
+          side={THREE.DoubleSide}
         />
       </mesh>
 
@@ -159,7 +174,6 @@ export const EnvironmentBackdrop: React.FC<EnvironmentBackdropProps> = ({
       {/* Urban Rooftop: Concrete Parapet Edge & Distant Skyline */}
       {environment === "urban" && (
         <group>
-          {/* Low Perimeter Safety Parapet Wall */}
           <mesh position={[0, 0.4, -18]} castShadow receiveShadow>
             <boxGeometry args={[42, 0.8, 0.4]} />
             <meshStandardMaterial color="#334155" roughness={0.7} />
@@ -168,7 +182,6 @@ export const EnvironmentBackdrop: React.FC<EnvironmentBackdropProps> = ({
             <boxGeometry args={[42, 0.8, 0.4]} />
             <meshStandardMaterial color="#334155" roughness={0.7} />
           </mesh>
-          {/* Distant Low-Poly Skyline Silhouettes */}
           {[-35, -20, 20, 35].map((x, idx) => (
             <mesh key={`bldg-${idx}`} position={[x, 10, -50]}>
               <boxGeometry args={[8 + (idx % 3) * 3, 20 + (idx % 2) * 8, 8]} />
@@ -190,12 +203,10 @@ export const EnvironmentBackdrop: React.FC<EnvironmentBackdropProps> = ({
             [16, 0, 24],
           ].map((pos, idx) => (
             <group key={`tree-${idx}`} position={pos as [number, number, number]}>
-              {/* Trunk */}
               <mesh position={[0, 1.2, 0]} castShadow>
                 <cylinderGeometry args={[0.2, 0.3, 2.4, 8]} />
                 <meshStandardMaterial color="#422a1d" roughness={0.9} />
               </mesh>
-              {/* Pine Cones */}
               <mesh position={[0, 3.2, 0]} castShadow>
                 <coneGeometry args={[1.8, 2.8, 8]} />
                 <meshStandardMaterial color="#1b4332" roughness={0.8} />

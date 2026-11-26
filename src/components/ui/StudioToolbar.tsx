@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
+import Link from "next/link";
 import { useStudioStore } from "@/store/useStudioStore";
 import { EnvironmentType, CameraMode } from "@/types";
 import {
@@ -18,11 +19,12 @@ import {
   Tag,
   History,
   Save,
-  Plus,
   Box,
   Layers,
   Wrench,
-  Share2,
+  Building2,
+  Cpu,
+  Globe,
 } from "lucide-react";
 
 interface StudioToolbarProps {
@@ -59,212 +61,233 @@ export const StudioToolbar: React.FC<StudioToolbarProps> = ({
   const environments: { id: EnvironmentType; label: string; icon: string }[] = [
     { id: "desert", label: "Desert", icon: "🏜️" },
     { id: "beach", label: "Beach", icon: "🏖️" },
-    { id: "urban", label: "Rooftop", icon: "🏙️" },
+    { id: "urban", label: "Urban", icon: "🏙️" },
     { id: "forest", label: "Forest", icon: "🌲" },
   ];
 
   const cameraModes: { id: CameraMode; label: string; icon: any }[] = [
-    { id: "orbit", label: "Orbit 360°", icon: Orbit },
+    { id: "orbit", label: "Orbit", icon: Orbit },
     { id: "cutaway", label: "Cutaway", icon: Eye },
     { id: "xray", label: "X-Ray", icon: Scan },
-    { id: "firstperson", label: "1st Person", icon: Compass },
+    { id: "firstperson", label: "Walk", icon: Compass },
   ];
 
   return (
     <>
-      {/* Top Header Bar */}
-      <header className="absolute top-4 left-4 z-20 flex items-center space-x-2">
-        {/* Brand Pill */}
-        <div className="flex items-center space-x-2.5 px-3.5 py-2 bg-slate-900/85 backdrop-blur-md border border-slate-700/80 rounded-2xl shadow-xl">
-          <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center text-slate-950 font-black text-xs">
-            P
+      {/* Unified Non-Overlapping Top Navigation Header Bar */}
+      <header className="fixed top-3 inset-x-3 z-20 flex items-center justify-between gap-2 pointer-events-none">
+        {/* Left Section: Brand & Environment */}
+        <div className="flex items-center space-x-1.5 p-1 bg-slate-950/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl pointer-events-auto shrink-0">
+          <div className="flex items-center space-x-2 px-2.5 py-1">
+            <div className="w-5 h-5 rounded-md bg-gradient-to-tr from-emerald-400 to-cyan-400 flex items-center justify-center text-slate-950 font-black text-[11px] shadow-sm">
+              P
+            </div>
+            <span className="font-extrabold text-xs tracking-wider text-white hidden sm:inline">
+              PORTA<span className="text-emerald-400">DESIGN</span>
+            </span>
           </div>
-          <div>
-            <div className="font-bold text-xs tracking-wider text-white">PORTACRAFT 3D</div>
-            <div className="text-[9px] text-emerald-400 font-mono">100% OFFLINE ENGINE</div>
-          </div>
-        </div>
 
-        {/* Environment & Day/Night Toggle */}
-        <div className="flex items-center space-x-1 p-1 bg-slate-900/85 backdrop-blur-md border border-slate-700/80 rounded-2xl shadow-xl">
+          <div className="w-px h-4 bg-white/10" />
+
+          {/* Environment Pills */}
           {environments.map((env) => (
             <button
               key={env.id}
               onClick={() => setEnvironment(env.id)}
-              className={`flex items-center space-x-1 px-2.5 py-1.5 rounded-xl text-xs font-medium transition ${
+              className={`p-1.5 rounded-xl text-xs transition ${
                 environment === env.id
-                  ? "bg-slate-700 text-white shadow"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+                  ? "bg-white/15 text-white shadow-inner scale-105"
+                  : "text-slate-400 hover:text-white hover:bg-white/5"
               }`}
-              title={`${env.label} Environment`}
+              title={env.label}
             >
               <span>{env.icon}</span>
-              <span className="hidden sm:inline">{env.label}</span>
             </button>
           ))}
 
-          <div className="w-px h-4 bg-slate-700 mx-0.5" />
-
-          {/* Day / Night Switch */}
+          {/* Day / Night Toggle */}
           <button
             onClick={toggleDayNight}
-            className={`p-1.5 rounded-xl text-xs transition ${
+            className={`p-1.5 rounded-xl transition ${
               dayNight === "night"
-                ? "bg-indigo-950 text-indigo-300 border border-indigo-700"
-                : "bg-amber-950/50 text-amber-300 border border-amber-700/50"
+                ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
+                : "bg-amber-500/20 text-amber-300 border border-amber-500/30"
             }`}
-            title={`Toggle Day/Night (Currently ${dayNight})`}
+            title={`Toggle Day/Night (${dayNight})`}
           >
-            {dayNight === "night" ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+            {dayNight === "night" ? <Moon className="w-3.5 h-3.5" /> : <Sun className="w-3.5 h-3.5" />}
           </button>
         </div>
 
-        {/* Camera Modes */}
-        <div className="hidden md:flex items-center space-x-1 p-1 bg-slate-900/85 backdrop-blur-md border border-slate-700/80 rounded-2xl shadow-xl">
+        {/* Center Section: Camera Modes & Hub Links */}
+        <div className="hidden md:flex items-center space-x-1 p-1 bg-slate-950/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl pointer-events-auto">
           {cameraModes.map((cm) => {
             const Icon = cm.icon;
+            const isActive = cameraMode === cm.id;
             return (
               <button
                 key={cm.id}
                 onClick={() => setCameraMode(cm.id)}
-                className={`flex items-center space-x-1 px-2.5 py-1.5 rounded-xl text-xs font-medium transition ${
-                  cameraMode === cm.id
-                    ? "bg-cyan-950 text-cyan-300 border border-cyan-700"
-                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+                className={`flex items-center space-x-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition ${
+                  isActive
+                    ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40"
+                    : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
                 }`}
                 title={cm.label}
               >
                 <Icon className="w-3.5 h-3.5" />
-                <span>{cm.label}</span>
+                <span className="hidden lg:inline">{cm.label}</span>
               </button>
             );
           })}
+
+          <div className="w-px h-4 bg-white/10 mx-1" />
+
+          {/* Portal Links */}
+          <Link
+            href="/vendor"
+            className="flex items-center space-x-1 px-2.5 py-1.5 rounded-xl text-xs text-slate-300 hover:text-white hover:bg-white/10 transition font-medium"
+            title="Vendor Portal"
+          >
+            <Building2 className="w-3.5 h-3.5 text-amber-400" />
+            <span className="hidden xl:inline">Vendor</span>
+          </Link>
+          <Link
+            href="/admin"
+            className="flex items-center space-x-1 px-2.5 py-1.5 rounded-xl text-xs text-slate-300 hover:text-white hover:bg-white/10 transition font-medium"
+            title="AI Ingestion Admin"
+          >
+            <Cpu className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="hidden xl:inline">AI</span>
+          </Link>
+          <Link
+            href="/design/solara-desert-studio-20ft"
+            className="flex items-center space-x-1 px-2.5 py-1.5 rounded-xl text-xs text-slate-300 hover:text-white hover:bg-white/10 transition font-medium"
+            title="Public Spec Page"
+          >
+            <Globe className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="hidden xl:inline">Spec</span>
+          </Link>
+        </div>
+
+        {/* Right Section: Actions */}
+        <div className="flex items-center space-x-1 p-1 bg-slate-950/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl pointer-events-auto shrink-0">
+          {/* Undo / Redo */}
+          <button
+            onClick={undo}
+            disabled={historyIndex <= 0}
+            className="p-1.5 rounded-xl text-slate-400 hover:text-white disabled:opacity-25 hover:bg-white/5 transition"
+            title="Undo"
+          >
+            <Undo2 className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={redo}
+            disabled={historyIndex >= history.length - 1}
+            className="p-1.5 rounded-xl text-slate-400 hover:text-white disabled:opacity-25 hover:bg-white/5 transition"
+            title="Redo"
+          >
+            <Redo2 className="w-3.5 h-3.5" />
+          </button>
+
+          <button
+            onClick={toggleMute}
+            className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition"
+            title={isMuted ? "Unmute" : "Mute"}
+          >
+            {isMuted ? <VolumeX className="w-3.5 h-3.5 text-red-400" /> : <Volume2 className="w-3.5 h-3.5 text-emerald-400" />}
+          </button>
+
+          <div className="w-px h-4 bg-white/10 mx-0.5" />
+
+          {/* Missions Pill */}
+          <button
+            onClick={() => setActiveDrawer(activeDrawer === "challenges" ? null : "challenges")}
+            className={`flex items-center space-x-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition ${
+              activeDrawer === "challenges"
+                ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                : "text-amber-400 hover:bg-amber-500/10"
+            }`}
+            title="Design Missions"
+          >
+            <Trophy className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Missions</span>
+          </button>
+
+          {/* Quotes Pill */}
+          <button
+            onClick={() => setActiveDrawer(activeDrawer === "quotes" ? null : "quotes")}
+            className={`flex items-center space-x-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition ${
+              activeDrawer === "quotes"
+                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                : "text-emerald-400 hover:bg-emerald-500/10"
+            }`}
+            title="Brand Quotes"
+          >
+            <Tag className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Quotes</span>
+          </button>
+
+          {/* Save Button */}
+          <button
+            onClick={onOpenSaveModal}
+            className="flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-bold text-xs transition shadow-md shadow-emerald-500/20 active:scale-95"
+          >
+            <Save className="w-3.5 h-3.5" />
+            <span>Save</span>
+          </button>
         </div>
       </header>
 
-      {/* Top Center-Right Utility Tray */}
-      <div className="absolute top-4 right-88 z-20 hidden lg:flex items-center space-x-1 p-1 bg-slate-900/85 backdrop-blur-md border border-slate-700/80 rounded-2xl shadow-xl">
-        {/* Undo / Redo */}
-        <button
-          onClick={undo}
-          disabled={historyIndex <= 0}
-          className="p-1.5 rounded-xl text-slate-400 hover:text-white disabled:opacity-30 disabled:hover:text-slate-400 hover:bg-slate-800 transition"
-          title="Undo (Ctrl+Z)"
-        >
-          <Undo2 className="w-4 h-4" />
-        </button>
-        <button
-          onClick={redo}
-          disabled={historyIndex >= history.length - 1}
-          className="p-1.5 rounded-xl text-slate-400 hover:text-white disabled:opacity-30 disabled:hover:text-slate-400 hover:bg-slate-800 transition"
-          title="Redo (Ctrl+Y)"
-        >
-          <Redo2 className="w-4 h-4" />
-        </button>
-
-        <div className="w-px h-4 bg-slate-700 mx-0.5" />
-
-        {/* Audio Mute */}
-        <button
-          onClick={toggleMute}
-          className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
-          title={isMuted ? "Unmute Audio SFX" : "Mute Audio SFX"}
-        >
-          {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
-        </button>
-
-        <div className="w-px h-4 bg-slate-700 mx-0.5" />
-
-        {/* Challenges Drawer Button */}
-        <button
-          onClick={() => setActiveDrawer(activeDrawer === "challenges" ? null : "challenges")}
-          className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium transition ${
-            activeDrawer === "challenges"
-              ? "bg-amber-950 text-amber-300 border border-amber-700"
-              : "text-amber-400 hover:bg-amber-950/40"
-          }`}
-        >
-          <Trophy className="w-3.5 h-3.5" />
-          <span>Challenges</span>
-        </button>
-
-        {/* Compare Quotes Drawer Button */}
-        <button
-          onClick={() => setActiveDrawer(activeDrawer === "quotes" ? null : "quotes")}
-          className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium transition ${
-            activeDrawer === "quotes"
-              ? "bg-emerald-950 text-emerald-300 border border-emerald-700"
-              : "text-emerald-400 hover:bg-emerald-950/40"
-          }`}
-        >
-          <Tag className="w-3.5 h-3.5" />
-          <span>Brand Quotes</span>
-        </button>
-
-        {/* Save / Version Link */}
-        <button
-          onClick={onOpenSaveModal}
-          className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-slate-950 font-semibold text-xs transition shadow-lg"
-        >
-          <Save className="w-3.5 h-3.5" />
-          <span>Save & Share</span>
-        </button>
-      </div>
-
       {/* Bottom Main Action Dock */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center space-x-2 p-1.5 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 rounded-2xl shadow-2xl">
-        {/* Add 20ft Cabin */}
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center space-x-1.5 p-1.5 bg-slate-950/85 backdrop-blur-xl border border-white/15 rounded-2xl shadow-2xl">
         <button
           onClick={() => addCabin("CABIN_20FT")}
-          className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-medium transition"
-          title="Add 20ft Shipping Container Module"
+          className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white text-xs font-semibold transition border border-white/5 hover:border-white/20 active:scale-95"
+          title="Add 20ft Container"
         >
           <Box className="w-4 h-4 text-emerald-400" />
-          <span>+ 20ft Cabin</span>
+          <span>+20ft</span>
         </button>
 
-        {/* Add 40ft High Cube Cabin */}
         <button
           onClick={() => addCabin("CABIN_40FT")}
-          className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-medium transition"
-          title="Add 40ft High Cube Container Module"
+          className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white text-xs font-semibold transition border border-white/5 hover:border-white/20 active:scale-95"
+          title="Add 40ft High-Cube Container"
         >
           <Box className="w-4 h-4 text-cyan-400" />
-          <span>+ 40ft High-Cube</span>
+          <span>+40ft</span>
         </button>
 
-        {/* Stack 2nd Story Cabin */}
         <button
           onClick={() => {
             const last = cabins[cabins.length - 1];
             addCabin(last?.type || "CABIN_20FT", 1, "top");
           }}
-          className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-700/80 text-indigo-200 text-xs font-medium transition"
-          title="Stack Container Vertically on 2nd Story"
+          className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-300 text-xs font-semibold transition active:scale-95"
+          title="Stack 2nd Story"
         >
           <Layers className="w-4 h-4 text-indigo-400" />
-          <span>Stack 2nd Story</span>
+          <span>+Story</span>
         </button>
 
-        <div className="w-px h-6 bg-slate-700 mx-1" />
+        <div className="w-px h-6 bg-white/10 mx-0.5" />
 
-        {/* Open Smart Equipment Visual Catalog */}
         <button
           onClick={onOpenEquipmentPicker}
-          className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 text-xs font-semibold transition"
+          className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-bold transition shadow-md shadow-amber-500/10 active:scale-95"
         >
           <Wrench className="w-4 h-4 text-amber-400" />
-          <span>Mount Equipment Catalog</span>
+          <span>Equipment</span>
         </button>
 
-        {/* Watch Build Replay */}
         <button
           onClick={() => setActiveDrawer(activeDrawer === "versions" ? null : "versions")}
-          className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition"
-          title="Watch Step-by-Step 3D Build Replay"
+          className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold transition border border-white/5 hover:border-white/20 active:scale-95"
+          title="3D Assembly Timeline"
         >
           <History className="w-4 h-4 text-cyan-400" />
-          <span>Build History</span>
+          <span>Replay</span>
         </button>
       </div>
     </>
