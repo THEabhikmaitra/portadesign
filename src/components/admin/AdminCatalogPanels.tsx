@@ -16,6 +16,8 @@ import {
   Trophy,
   Truck,
   FileCode2,
+  Image as ImageIcon,
+  Upload,
 } from "lucide-react";
 import { AdminAssetUploader } from "./AdminAssetUploader";
 import { ThreePrimitive, ChallengeRule } from "@/types";
@@ -1054,10 +1056,38 @@ export const AdminPresetsAndRatesPanel: React.FC<{
 
   const [defaults, setDefaults] = useState<any>(logisticsDefaults || {});
   const [saving, setSaving] = useState(false);
+  const [uploadingPresetId, setUploadingPresetId] = useState<string | null>(null);
 
   React.useEffect(() => {
     if (logisticsDefaults) setDefaults(logisticsDefaults);
   }, [logisticsDefaults]);
+
+  const quickUploadPresetImage = async (presetId: string, file: File) => {
+    setUploadingPresetId(presetId);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("bucket", "presets");
+      const upRes = await fetch("/api/admin/upload", { method: "POST", body: fd });
+      const upData = await upRes.json();
+      if (!upRes.ok) throw new Error(upData.error || "Upload failed");
+
+      const patchRes = await fetch("/api/admin/presets", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: presetId, thumbUrl: upData.url }),
+      });
+      const patchData = await patchRes.json();
+      if (!patchRes.ok) throw new Error(patchData.error || "Update failed");
+
+      onNotify("Opening model image uploaded & live!");
+      onRefresh();
+    } catch (err: any) {
+      onNotify(`Error: ${err.message}`);
+    } finally {
+      setUploadingPresetId(null);
+    }
+  };
 
   const savePreset = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1083,6 +1113,7 @@ export const AdminPresetsAndRatesPanel: React.FC<{
       onNotify("Room Preset saved & live in 3D Studio!");
       setPresetTitle("");
       setPresetCode("");
+      setPresetThumbUrl("");
       onRefresh();
     } catch (err: any) {
       onNotify(`Error: ${err.message}`);
@@ -1188,20 +1219,43 @@ export const AdminPresetsAndRatesPanel: React.FC<{
 
       {/* Presets & Challenges Side by Side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Room Presets */}
+        {/* Room Presets (Opening Image Boxes) */}
         <div className="p-5 rounded-3xl bg-slate-900 border border-slate-800 space-y-4">
-          <h3 className="text-sm font-bold text-white">Room Presets ({presets.length})</h3>
-          <div className="space-y-2 max-h-56 overflow-y-auto">
+          <h3 className="text-sm font-bold text-white">Opening Models / Room Presets ({presets.length})</h3>
+          <div className="space-y-2 max-h-64 overflow-y-auto">
             {presets.map((p) => (
-              <div key={p.id} className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-2">
+              <div key={p.id} className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-2">
                 <div className="flex items-center space-x-2.5 overflow-hidden">
-                  {p.thumbUrl && <img src={p.thumbUrl} alt={p.title} className="w-9 h-9 rounded-lg object-cover shrink-0" />}
+                  <div className="w-20 h-12 rounded-lg border border-slate-700 bg-slate-900 flex items-center justify-center overflow-hidden shrink-0">
+                    {p.thumbUrl ? (
+                      <img src={p.thumbUrl} alt={p.title} className="w-full h-full object-cover" />
+                    ) : (
+                      <ImageIcon className="w-4 h-4 text-slate-600" />
+                    )}
+                  </div>
                   <div className="overflow-hidden">
-                    <div className="font-bold text-white truncate">{p.title} ({p.approxPriceLabel})</div>
-                    <div className="text-[10px] text-slate-400 truncate">{p.code} • {p.environment}</div>
+                    <div className="font-bold text-white truncate">{p.title} • {p.approxPriceLabel}</div>
+                    <div className="text-[10px] text-slate-400 truncate">{p.thumbUrl ? "Photo active" : "No image uploaded"}</div>
                   </div>
                 </div>
-                <div className="flex items-center space-x-1">
+                <div className="flex items-center space-x-1 shrink-0">
+                  <label className="px-2 py-1 rounded bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 text-[10px] font-semibold cursor-pointer inline-flex items-center space-x-1">
+                    {uploadingPresetId === p.id ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Upload className="w-3 h-3" />
+                    )}
+                    <span>{p.thumbUrl ? "Photo" : "Upload"}</span>
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) quickUploadPresetImage(p.id, f);
+                      }}
+                    />
+                  </label>
                   <button
                     type="button"
                     onClick={() => {
@@ -1286,7 +1340,7 @@ export const AdminPresetsAndRatesPanel: React.FC<{
                 ))}
               </select>
             </div>
-            <AdminAssetUploader label="Preset Thumbnail Photo" bucket="presets" value={presetThumbUrl} onChange={setPresetThumbUrl} />
+            <AdminAssetUploader label="Opening Model Image Box" bucket="presets" value={presetThumbUrl} onChange={setPresetThumbUrl} />
             <textarea
               rows={2}
               value={presetSceneJson}

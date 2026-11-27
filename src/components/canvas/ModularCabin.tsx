@@ -114,6 +114,7 @@ export const ModularCabin: React.FC<ModularCabinProps> = ({ cabin, cameraMode, d
       position={cabin.position}
       rotation={cabin.rotation}
       onClick={(e) => {
+        if (e.delta > 4) return;
         e.stopPropagation();
         setSelectedEntity({ type: "cabin", id: cabin.id });
       }}
@@ -204,9 +205,28 @@ export const ModularCabin: React.FC<ModularCabinProps> = ({ cabin, cameraMode, d
           <mesh rotation={[-Math.PI / 2, 0, 0]} material={wallMaterial} castShadow receiveShadow>
             <planeGeometry args={[length - 0.1, width - 0.1]} />
           </mesh>
-          <mesh rotation={[Math.PI / 2, 0, 0]} material={interiorWallMaterial}>
+          <mesh position={[0, -0.04, 0]} rotation={[Math.PI / 2, 0, 0]} material={interiorWallMaterial}>
             <planeGeometry args={[length - 0.2, width - 0.2]} />
           </mesh>
+          {(cameraMode === "firstperson" || dayNight === "night") && (
+            <group position={[0, -0.06, 0]}>
+              <mesh>
+                <boxGeometry args={[Math.min(1.6, length * 0.3), 0.025, 0.22]} />
+                <meshStandardMaterial
+                  color="#fffbeb"
+                  emissive="#fef3c7"
+                  emissiveIntensity={1.5}
+                />
+              </mesh>
+              <pointLight
+                color="#fff7ed"
+                intensity={cameraMode === "firstperson" ? 8 : 4.5}
+                distance={14}
+                decay={1}
+                position={[0, -0.45, 0]}
+              />
+            </group>
+          )}
         </group>
       )}
 

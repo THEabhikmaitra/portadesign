@@ -19,7 +19,7 @@ export const StudioCanvas: React.FC = () => {
   const setSelectedEntity = useStudioStore((state) => state.setSelectedEntity);
 
   return (
-    <div className="relative w-full h-full select-none bg-slate-950 overflow-hidden">
+    <div className="relative w-full h-full select-none touch-none bg-slate-950 overflow-hidden">
       <Canvas
         shadows
         camera={{ position: [10, 8, 12], fov: 45 }}

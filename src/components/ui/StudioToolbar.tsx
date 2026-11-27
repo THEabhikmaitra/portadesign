@@ -233,6 +233,29 @@ export const StudioToolbar: React.FC<StudioToolbarProps> = ({
 
           {moreOpen && (
             <div className="absolute top-full mt-2 right-0 w-56 bg-slate-950/95 backdrop-blur-xl border border-white/15 rounded-2xl shadow-2xl p-1.5 space-y-0.5 z-50 text-xs">
+              <div className="md:hidden pb-1 mb-1 border-b border-white/10 space-y-0.5">
+                {cameraModes.map((cm) => {
+                  const Icon = cm.icon;
+                  return (
+                    <button
+                      key={`mob-${cm.id}`}
+                      type="button"
+                      onClick={() => {
+                        setCameraMode(cm.id);
+                        setMoreOpen(false);
+                      }}
+                      className={`w-full flex items-center space-x-2 px-3 py-2 rounded-xl transition text-left ${
+                        cameraMode === cm.id
+                          ? "bg-cyan-500/20 text-cyan-300 font-semibold"
+                          : "text-slate-300 hover:bg-white/10"
+                      }`}
+                    >
+                      <Icon className="w-3.5 h-3.5" />
+                      <span>{cm.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
               <button
                 type="button"
                 onClick={() => {

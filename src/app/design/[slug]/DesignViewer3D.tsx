@@ -71,9 +71,10 @@ export const DesignViewer3D: React.FC<DesignViewer3DProps> = ({ scene }) => {
             autoRotateSpeed={0.8}
             enableDamping
             dampingFactor={0.05}
-            maxPolarAngle={Math.PI / 2}
-            minDistance={4}
-            maxDistance={30}
+            minPolarAngle={0.05}
+            maxPolarAngle={Math.PI - 0.08}
+            minDistance={0.5}
+            maxDistance={35}
           />
         </Suspense>
       </Canvas>
