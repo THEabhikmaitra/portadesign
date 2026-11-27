@@ -24,13 +24,17 @@ export const RemixButton: React.FC<RemixButtonProps> = ({
       const res = await fetch(`/api/designs/${originalSlug}/remix`, {
         method: "POST",
       });
+      if (res.status === 401) {
+        router.push("/auth/signin");
+        return;
+      }
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || "Failed to remix design");
       }
 
-      // Redirect to 3D studio with the remixed slug loaded
-      router.push(`/?remix=${data.slug}`);
+      const remixedSlug = data.design?.slug || data.slug;
+      router.push(`/?remix=${remixedSlug}`);
     } catch (err: any) {
       alert(err.message || "Failed to remix design");
       setIsRemixing(false);

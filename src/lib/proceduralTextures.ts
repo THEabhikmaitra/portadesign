@@ -143,11 +143,11 @@ class ProceduralTextureManager {
         ctx.fillRect(Math.random() * 256, Math.random() * 256, 2, 2);
       }
     } else {
-      // Forest
-      ctx.fillStyle = "#273924";
+      // Bright Sunny Garden Lawn
+      ctx.fillStyle = "#487c3b";
       ctx.fillRect(0, 0, 256, 256);
-      for (let i = 0; i < 2500; i++) {
-        ctx.fillStyle = Math.random() > 0.4 ? "rgba(20, 45, 18, 0.35)" : "rgba(65, 95, 45, 0.25)";
+      for (let i = 0; i < 3000; i++) {
+        ctx.fillStyle = Math.random() > 0.45 ? "rgba(55, 102, 42, 0.35)" : "rgba(108, 165, 82, 0.28)";
         ctx.fillRect(Math.random() * 256, Math.random() * 256, 2, 3);
       }
     }

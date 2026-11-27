@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireRole, logAdminAction } from "@/lib/authGuard";
 
 interface ParsedItem {
   category: string;
   code: string;
   name: string;
+  friendlyName?: string;
   brand?: string;
+  mountZone?: string;
   costModifier?: number;
   baseCost?: number;
   specsJson?: any;
+  dimensionsJson?: any;
   shaderJson?: {
     color: string;
     roughness: number;
@@ -19,39 +23,45 @@ interface ParsedItem {
   };
 }
 
+const ELEMENT_CATEGORIES = new Set(["CABIN", "DOOR", "WINDOW", "EQUIPMENT", "STAIRS", "POD"]);
+
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireRole(["ADMIN"]);
+    if (auth.error) return auth.error;
+
     const body = await req.json();
-    const { rawText, format = "text", autoCommit = false } = body;
+    const { rawText, autoCommit = false } = body;
 
     if (!rawText || !rawText.trim()) {
       return NextResponse.json({ error: "Catalog content is required" }, { status: 400 });
     }
 
     let parsedItems: ParsedItem[] = [];
-    let parserEngineUsed = "deterministic_fallback";
+    let parserEngineUsed = "deterministic_parser";
 
-    // 1. Try local Ollama AI first (http://localhost:11434/api/chat)
     const OLLAMA_URL = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
     const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "qwen2.5";
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3500); // 3.5s timeout
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-      const prompt = `You are a 3D WebGL Portacabin Architectural Data Engineer. Parse the following unstructured vendor catalog text into an array of JSON objects.
-For each item, output:
-- category: one of ["CABIN", "GLASS_TYPE", "FRAME_MATERIAL", "WALL_FINISH", "EQUIPMENT"]
-- code: unique uppercase identifier (e.g. GLASS_SOLAR_GREY, AC_VOLTAS_2T)
+      const prompt = `You are a 3D WebGL Portacabin Architectural Data Engineer. Parse the following catalog lines into a JSON array.
+Each object must include:
+- category: one of ["CABIN","DOOR","WINDOW","EQUIPMENT","STAIRS","POD","GLASS_TYPE","FRAME_MATERIAL","WALL_FINISH","BRAND","INSULATION"]
+- code: unique uppercase identifier with underscores
 - name: clear title
-- brand: manufacturer brand name
-- baseCost: estimated base cost number in INR
-- costModifier: price delta modifier number in INR
-- shaderJson: Three.js PBR shader values with color (hex), roughness (0-1), metalness (0-1), transmission (0-1 for glass), ior (1.5 for glass)
+- friendlyName: simple plain name
+- brand: brand string
+- mountZone: for elements one of ["WALL_EXTERIOR","WALL_INTERIOR","ROOF_TOP","FLOOR_INTERIOR","PERIMETER_EDGE"]
+- baseCost: number in INR
+- costModifier: number in INR
+- shaderJson: { color, roughness, metalness, transmission?, ior?, clearcoat? }
 
-Return ONLY valid JSON array with no markdown backticks or commentary.
+Return ONLY valid JSON array with no markdown or extra commentary.
 
-Vendor Catalog Text:
+Text:
 ${rawText}`;
 
       const ollamaRes = await fetch(`${OLLAMA_URL}/api/chat`, {
@@ -71,61 +81,97 @@ ${rawText}`;
         const ollamaJson = await ollamaRes.json();
         const content = ollamaJson.message?.content || "";
         const cleanJson = content.replace(/```json/g, "").replace(/```/g, "").trim();
-        parsedItems = JSON.parse(cleanJson);
-        parserEngineUsed = `ollama_${OLLAMA_MODEL}`;
+        const candidate = JSON.parse(cleanJson);
+        if (Array.isArray(candidate) && candidate.length > 0) {
+          parsedItems = candidate;
+          parserEngineUsed = `ollama_${OLLAMA_MODEL}`;
+        }
       }
-    } catch (ollamaErr) {
-      console.log("Ollama offline or timed out; falling back to deterministic parser engine.");
+    } catch {
+      // Fall back cleanly to CSV/text parser
     }
 
-    // 2. Deterministic Regex / CSV Parser Fallback
     if (!parsedItems || parsedItems.length === 0) {
       parserEngineUsed = "deterministic_parser";
       parsedItems = parseCatalogDeterministically(rawText);
     }
 
-    // 3. If autoCommit is requested, save to MasterElement or MasterAttribute in SQLite
     if (autoCommit && parsedItems.length > 0) {
       for (const item of parsedItems) {
-        if (item.category === "CABIN" || item.category === "EQUIPMENT") {
+        const cat = String(item.category || "EQUIPMENT").toUpperCase();
+        if (ELEMENT_CATEGORIES.has(cat)) {
           await prisma.masterElement.upsert({
             where: { code: item.code },
             update: {
               name: item.name,
-              category: item.category,
-              baseCost: item.baseCost || 15000,
+              friendlyName: item.friendlyName || item.name,
+              category: cat,
+              mountZone: item.mountZone || (cat === "CABIN" ? "FLOOR_INTERIOR" : "ROOF_TOP"),
+              baseCost: Number(item.baseCost) || 15000,
+              isActive: true,
             },
             create: {
-              category: item.category,
+              category: cat,
               code: item.code,
               name: item.name,
-              dimensionsJson: JSON.stringify({ width: 2.4, height: 2.6, length: 6.0 }),
-              baseCost: item.baseCost || 15000,
-              mountZone: item.category === "EQUIPMENT" ? "ROOF_TOP" : "FLOOR_INTERIOR",
+              friendlyName: item.friendlyName || item.name,
+              dimensionsJson: JSON.stringify(
+                item.dimensionsJson || { width: 1.2, height: 1.2, depth: 0.8 }
+              ),
+              baseCost: Number(item.baseCost) || 15000,
+              mountZone: item.mountZone || (cat === "CABIN" ? "FLOOR_INTERIOR" : "ROOF_TOP"),
+              optionsJson: JSON.stringify({
+                spotLabel: `Auto-fits on ${(item.mountZone || "FLOOR_INTERIOR").toLowerCase().replace("_", " ")}`,
+                brands: item.brand ? [{ name: item.brand, modifier: 0, description: item.name }] : [],
+                capacities: [{ label: "Standard", modifier: 0, multiplier: 1 }],
+              }),
+              threeConfigJson: JSON.stringify({
+                primitives: [
+                  {
+                    shape: "box",
+                    args: [1.0, 0.8, 0.6],
+                    position: [0, 0.4, 0],
+                    color: item.shaderJson?.color || "#64748b",
+                    roughness: 0.4,
+                    metalness: 0.4,
+                  },
+                ],
+              }),
             },
           });
         } else {
-          // Attribute (GLASS_TYPE, FRAME_MATERIAL, WALL_FINISH)
           await prisma.masterAttribute.upsert({
             where: { code: item.code },
             update: {
               name: item.name,
-              category: item.category,
-              brand: item.brand,
-              costModifier: item.costModifier || 0,
-              shaderJson: JSON.stringify(item.shaderJson || { color: "#ffffff", roughness: 0.2, metalness: 0.1 }),
+              friendlyName: item.friendlyName || item.name,
+              category: cat,
+              brand: item.brand || null,
+              costModifier: Number(item.costModifier) || 0,
+              shaderJson: JSON.stringify(
+                item.shaderJson || { color: "#475569", roughness: 0.35, metalness: 0.25 }
+              ),
+              isActive: true,
             },
             create: {
-              category: item.category,
+              category: cat,
               code: item.code,
               name: item.name,
-              brand: item.brand,
-              costModifier: item.costModifier || 0,
-              shaderJson: JSON.stringify(item.shaderJson || { color: "#ffffff", roughness: 0.2, metalness: 0.1 }),
+              friendlyName: item.friendlyName || item.name,
+              brand: item.brand || null,
+              costModifier: Number(item.costModifier) || 0,
+              shaderJson: JSON.stringify(
+                item.shaderJson || { color: "#475569", roughness: 0.35, metalness: 0.25 }
+              ),
             },
           });
         }
       }
+
+      await logAdminAction(auth.actor.id, "BULK_PARSE_COMMIT", "Catalog", undefined, {
+        count: parsedItems.length,
+        engine: parserEngineUsed,
+      });
     }
 
     return NextResponse.json({
@@ -140,7 +186,6 @@ ${rawText}`;
   }
 }
 
-// Deterministic Parser Engine for CSV / Unstructured Text
 function parseCatalogDeterministically(rawText: string): ParsedItem[] {
   const items: ParsedItem[] = [];
   const lines = rawText.split(/\r?\n/).filter((l) => l.trim().length > 0);
@@ -149,7 +194,6 @@ function parseCatalogDeterministically(rawText: string): ParsedItem[] {
     const trimmed = line.trim();
     if (trimmed.startsWith("#") || trimmed.startsWith("//")) continue;
 
-    // Check for CSV format (comma or tab separated)
     if (trimmed.includes(",") || trimmed.includes("\t")) {
       const parts = (trimmed.includes("\t") ? trimmed.split("\t") : trimmed.split(",")).map((p) =>
         p.replace(/^["']|["']$/g, "").trim()
@@ -166,16 +210,16 @@ function parseCatalogDeterministically(rawText: string): ParsedItem[] {
           category: cat,
           code,
           name,
+          friendlyName: name,
           brand,
           baseCost: cost,
-          costModifier: cost > 10000 ? cost : 0,
+          costModifier: cost,
           shaderJson: inferShader(cat, name),
         });
         continue;
       }
     }
 
-    // Unstructured text sentence parsing
     const cat = inferCategory(trimmed);
     const brand = inferBrand(trimmed);
     const costMatch = trimmed.match(/(?:₹|INR|Rs\.?)\s*([\d,]+)/i);
@@ -185,7 +229,8 @@ function parseCatalogDeterministically(rawText: string): ParsedItem[] {
     items.push({
       category: cat,
       code,
-      name: trimmed.substring(0, 50),
+      name: trimmed.substring(0, 60),
+      friendlyName: trimmed.substring(0, 40),
       brand,
       baseCost: cost,
       costModifier: cost,
@@ -201,7 +246,11 @@ function inferCategory(text: string): string {
   if (lower.includes("glass") || lower.includes("glazing") || lower.includes("tint")) return "GLASS_TYPE";
   if (lower.includes("frame") || lower.includes("alum") || lower.includes("upvc")) return "FRAME_MATERIAL";
   if (lower.includes("paint") || lower.includes("finish") || lower.includes("coating")) return "WALL_FINISH";
-  if (lower.includes("cabin") || lower.includes("container") || lower.includes("module")) return "CABIN";
+  if (lower.includes("cabin") || lower.includes("container")) return "CABIN";
+  if (lower.includes("door")) return "DOOR";
+  if (lower.includes("window")) return "WINDOW";
+  if (lower.includes("stair")) return "STAIRS";
+  if (lower.includes("pod") || lower.includes("bath") || lower.includes("kitchen")) return "POD";
   return "EQUIPMENT";
 }
 
@@ -211,26 +260,25 @@ function inferBrand(text: string): string {
   if (lower.includes("ais") || lower.includes("asahi")) return "AIS Glass";
   if (lower.includes("daikin")) return "Daikin";
   if (lower.includes("voltas")) return "Voltas";
-  if (lower.includes("tata")) return "Tata Steel / Solar";
-  if (lower.includes("jindal")) return "Jindal Aluminium";
+  if (lower.includes("tata")) return "Tata";
+  if (lower.includes("jindal")) return "Jindal";
   if (lower.includes("fenesta")) return "Fenesta";
   if (lower.includes("godrej")) return "Godrej Interio";
   if (lower.includes("sintex")) return "Sintex";
-  return "Modular Standard";
+  return "Standard";
 }
 
 function generateCode(category: string, name: string): string {
   const clean = name
     .toUpperCase()
-    .replace(/[^A-Z0-9]/g, "_")
-    .replace(/_+/g, "_")
-    .substring(0, 16);
+    .replace(/[^A-Z0-9]+/g, "_")
+    .replace(/^_|_$/g, "")
+    .substring(0, 20);
   return `${category}_${clean}`;
 }
 
 function inferShader(category: string, name: string): any {
   const lower = name.toLowerCase();
-
   if (category === "GLASS_TYPE") {
     if (lower.includes("tint") || lower.includes("black") || lower.includes("dark")) {
       return { color: "#1a2228", roughness: 0.08, metalness: 0.25, transmission: 0.45, ior: 1.52, clearcoat: 1.0 };
@@ -243,16 +291,10 @@ function inferShader(category: string, name: string): any {
     }
     return { color: "#ffffff", roughness: 0.02, metalness: 0.05, transmission: 0.94, ior: 1.5, clearcoat: 1.0 };
   }
-
   if (category === "FRAME_MATERIAL") {
-    if (lower.includes("alum") || lower.includes("charcoal")) {
-      return { color: "#2b3038", roughness: 0.3, metalness: 0.85 };
-    }
-    if (lower.includes("upvc") || lower.includes("white")) {
-      return { color: "#f8f9fa", roughness: 0.2, metalness: 0.05 };
-    }
+    if (lower.includes("alum") || lower.includes("charcoal")) return { color: "#2b3038", roughness: 0.3, metalness: 0.85 };
+    if (lower.includes("upvc") || lower.includes("white")) return { color: "#f8f9fa", roughness: 0.2, metalness: 0.05 };
     return { color: "#3d454f", roughness: 0.35, metalness: 0.9 };
   }
-
   return { color: "#475569", roughness: 0.45, metalness: 0.2 };
 }

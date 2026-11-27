@@ -2,8 +2,9 @@
 
 import React, { useMemo } from "react";
 import * as THREE from "three";
-import { CabinConfig, WallFinishCode } from "@/types";
+import { CabinConfig } from "@/types";
 import { proceduralTextures } from "@/lib/proceduralTextures";
+import { useSafeTexture } from "@/lib/safeTexture";
 import { useStudioStore } from "@/store/useStudioStore";
 import { DoorMesh, WindowMesh } from "./DoorsAndWindows";
 
@@ -13,34 +14,35 @@ interface ModularCabinProps {
   dayNight: "day" | "night";
 }
 
-// Color and PBR mapping for wall finishes
-const WALL_FINISH_PROPS: Record<WallFinishCode, { color: string; roughness: number; metalness: number }> = {
-  FINISH_BATTLESHIP_GREY: { color: "#475569", roughness: 0.45, metalness: 0.25 },
-  FINISH_OCEAN_CYBER: { color: "#0f3d5e", roughness: 0.38, metalness: 0.35 },
-  FINISH_DESERT_BEIGE: { color: "#cbb393", roughness: 0.58, metalness: 0.15 },
-  FINISH_FOREST_OLIVE: { color: "#2c3b2e", roughness: 0.52, metalness: 0.2 },
-};
-
 export const ModularCabin: React.FC<ModularCabinProps> = ({ cabin, cameraMode, dayNight }) => {
   const selectedEntity = useStudioStore((state) => state.selectedEntity);
   const setSelectedEntity = useStudioStore((state) => state.setSelectedEntity);
+  const logistics = useStudioStore((state) => state.logistics);
+  const cabins = useStudioStore((state) => state.cabins);
+  const catalogElements = useStudioStore((state) => state.catalogElements);
+  const catalogAttributes = useStudioStore((state) => state.catalogAttributes);
 
   const isSelected = selectedEntity?.type === "cabin" && selectedEntity?.id === cabin.id;
   const isCutaway = cameraMode === "cutaway";
   const isXRay = cameraMode === "xray";
 
-  const is40Ft = cabin.type === "CABIN_40FT";
-  const length = is40Ft ? 12.19 : 6.06;
-  const width = 2.44;
-  const height = is40Ft ? 2.90 : 2.59;
+  const cabinMeta = catalogElements.find((e) => e.code === cabin.type);
+  const length = Number(cabinMeta?.dimensions?.length) || (cabin.type === "CABIN_40FT" ? 12.19 : 6.06);
+  const width = Number(cabinMeta?.dimensions?.width) || 2.44;
+  const height = Number(cabinMeta?.dimensions?.height) || (cabin.type === "CABIN_40FT" ? 2.9 : 2.59);
 
-  // Procedural corrugation bump map & wood floor
   const corrugationBump = useMemo(() => proceduralTextures.getCorrugationBumpTexture(), []);
   const woodFloorTexture = useMemo(() => proceduralTextures.getWoodFloorTexture(), []);
 
-  const finish = WALL_FINISH_PROPS[cabin.wallFinish] || WALL_FINISH_PROPS.FINISH_BATTLESHIP_GREY;
+  const finishAttr = catalogAttributes.find(
+    (a) => a.category === "WALL_FINISH" && a.code === cabin.wallFinish
+  );
+  const finishColor = finishAttr?.shader?.color || "#475569";
+  const finishRoughness = finishAttr?.shader?.roughness ?? 0.45;
+  const finishMetalness = finishAttr?.shader?.metalness ?? 0.25;
 
-  // PBR materials
+  const customTexture = useSafeTexture(finishAttr?.textureUrl);
+
   const wallMaterial = useMemo(() => {
     if (isXRay) {
       return new THREE.MeshStandardMaterial({
@@ -52,13 +54,14 @@ export const ModularCabin: React.FC<ModularCabinProps> = ({ cabin, cameraMode, d
     }
 
     return new THREE.MeshStandardMaterial({
-      color: finish.color,
-      roughness: finish.roughness,
-      metalness: finish.metalness,
+      color: finishColor,
+      map: customTexture || null,
+      roughness: finishRoughness,
+      metalness: finishMetalness,
       bumpMap: corrugationBump,
       bumpScale: 0.04,
     });
-  }, [finish, corrugationBump, isXRay]);
+  }, [finishColor, finishRoughness, finishMetalness, customTexture, corrugationBump, isXRay]);
 
   const frameMaterial = useMemo(() => {
     if (isXRay) {
@@ -115,7 +118,6 @@ export const ModularCabin: React.FC<ModularCabinProps> = ({ cabin, cameraMode, d
         setSelectedEntity({ type: "cabin", id: cabin.id });
       }}
     >
-      {/* Selection Highlight Cage */}
       {isSelected && (
         <mesh position={[0, halfH, 0]}>
           <boxGeometry args={[length + 0.12, height + 0.12, width + 0.12]} />
@@ -123,7 +125,7 @@ export const ModularCabin: React.FC<ModularCabinProps> = ({ cabin, cameraMode, d
         </mesh>
       )}
 
-      {/* 1. Structural Corner Castings (8 standard ISO steel castings) */}
+      {/* Corner Castings */}
       {[
         [-halfL, 0.08, -halfW],
         [halfL, 0.08, -halfW],
@@ -138,7 +140,6 @@ export const ModularCabin: React.FC<ModularCabinProps> = ({ cabin, cameraMode, d
           <mesh material={cornerCastingMaterial} castShadow receiveShadow>
             <boxGeometry args={[0.22, 0.22, 0.22]} />
           </mesh>
-          {/* Oval lifting hole detail */}
           <mesh position={[0, 0, 0.115]}>
             <cylinderGeometry args={[0.04, 0.04, 0.02, 16]} />
             <meshBasicMaterial color="#000000" />
@@ -146,8 +147,7 @@ export const ModularCabin: React.FC<ModularCabinProps> = ({ cabin, cameraMode, d
         </group>
       ))}
 
-      {/* 2. Main Structural Beams (Heavy Tubular Corten Steel) */}
-      {/* 4 Vertical Corner Posts */}
+      {/* Vertical Corner Posts */}
       {[
         [-halfL, halfH, -halfW],
         [halfL, halfH, -halfW],
@@ -165,7 +165,7 @@ export const ModularCabin: React.FC<ModularCabinProps> = ({ cabin, cameraMode, d
         </mesh>
       ))}
 
-      {/* 4 Bottom Perimeter Rails */}
+      {/* Bottom Perimeter Rails */}
       <mesh position={[0, beamSize / 2, -halfW]} material={frameMaterial} castShadow receiveShadow>
         <boxGeometry args={[length, beamSize, beamSize]} />
       </mesh>
@@ -179,7 +179,7 @@ export const ModularCabin: React.FC<ModularCabinProps> = ({ cabin, cameraMode, d
         <boxGeometry args={[beamSize, beamSize, width]} />
       </mesh>
 
-      {/* 4 Top Perimeter Rails */}
+      {/* Top Perimeter Rails */}
       <mesh position={[0, height - beamSize / 2, -halfW]} material={frameMaterial} castShadow receiveShadow>
         <boxGeometry args={[length, beamSize, beamSize]} />
       </mesh>
@@ -193,60 +193,86 @@ export const ModularCabin: React.FC<ModularCabinProps> = ({ cabin, cameraMode, d
         <boxGeometry args={[beamSize, beamSize, width]} />
       </mesh>
 
-      {/* 3. Wood Floor Panel (Interior Bottom) */}
+      {/* Wood Floor */}
       <mesh position={[0, 0.08, 0]} rotation={[-Math.PI / 2, 0, 0]} material={floorMaterial} receiveShadow>
         <planeGeometry args={[length - 0.2, width - 0.2]} />
       </mesh>
 
-      {/* 4. Roof Panel (Hides in Dollhouse Cutaway Mode) */}
+      {/* Roof Panel */}
       {!isCutaway && (
         <group position={[0, height - 0.02, 0]}>
           <mesh rotation={[-Math.PI / 2, 0, 0]} material={wallMaterial} castShadow receiveShadow>
             <planeGeometry args={[length - 0.1, width - 0.1]} />
           </mesh>
-          {/* Ceiling Interior Face */}
           <mesh rotation={[Math.PI / 2, 0, 0]} material={interiorWallMaterial}>
             <planeGeometry args={[length - 0.2, width - 0.2]} />
           </mesh>
         </group>
       )}
 
-      {/* 5. Corrugated Side Walls (Front & Back Long Sides) */}
-      {/* Front Long Wall (Z = halfW) */}
+      {/* Plinth Pads / Terrace Load Grid */}
+      {cabin.tier === 0 && (
+        <group position={[0, -0.02, 0]}>
+          {[-halfL + 0.3, 0, halfL - 0.3].map((px, idx) => (
+            <mesh key={`plinth-${idx}`} position={[px, 0, 0]} receiveShadow>
+              <boxGeometry args={[0.35, 0.06, width + 0.12]} />
+              <meshStandardMaterial
+                color={logistics.placementLevel === "TERRACE" ? "#1e293b" : "#475569"}
+                roughness={0.7}
+                metalness={logistics.placementLevel === "TERRACE" ? 0.85 : 0.1}
+              />
+            </mesh>
+          ))}
+        </group>
+      )}
+
+      {/* Cool-Roof Canopy */}
+      {!isCutaway &&
+        logistics.insulationTier === "PUF_75MM_CANOPY" &&
+        !cabins.some((other) => other.id !== cabin.id && other.position[1] > cabin.position[1] + 0.5) && (
+          <group position={[0, height + 0.32, 0]}>
+            {[-halfL + 0.3, 0, halfL - 0.3].map((sx) =>
+              [-halfW + 0.2, halfW - 0.2].map((sz) => (
+                <mesh key={`strut-${sx}-${sz}`} position={[sx, -0.16, sz]} material={frameMaterial}>
+                  <boxGeometry args={[0.06, 0.36, 0.06]} />
+                </mesh>
+              ))
+            )}
+            <mesh rotation={[0.09, 0, 0]} castShadow receiveShadow>
+              <boxGeometry args={[length + 0.5, 0.05, width + 0.65]} />
+              <meshStandardMaterial color="#f1f5f9" roughness={0.35} metalness={0.4} />
+            </mesh>
+          </group>
+        )}
+
+      {/* Corrugated Walls */}
       <group position={[0, halfH, halfW - 0.02]}>
         <mesh material={wallMaterial} castShadow receiveShadow>
           <boxGeometry args={[length - 0.2, height - 0.24, 0.04]} />
         </mesh>
       </group>
-
-      {/* Back Long Wall (Z = -halfW) */}
       <group position={[0, halfH, -halfW + 0.02]}>
         <mesh material={wallMaterial} castShadow receiveShadow>
           <boxGeometry args={[length - 0.2, height - 0.24, 0.04]} />
         </mesh>
       </group>
-
-      {/* Left End Wall (X = -halfL) */}
       <group position={[-halfL + 0.02, halfH, 0]}>
         <mesh material={wallMaterial} castShadow receiveShadow>
           <boxGeometry args={[0.04, height - 0.24, width - 0.2]} />
         </mesh>
       </group>
-
-      {/* Right End Wall (X = halfL) */}
       <group position={[halfL - 0.02, halfH, 0]}>
         <mesh material={wallMaterial} castShadow receiveShadow>
           <boxGeometry args={[0.04, height - 0.24, width - 0.2]} />
         </mesh>
       </group>
 
-      {/* 6. Exterior Bulkhead Lights (Glow at Night) */}
+      {/* Bulkhead Light */}
       <group position={[0, height - 0.35, halfW + 0.06]}>
         <mesh castShadow>
           <boxGeometry args={[0.16, 0.22, 0.08]} />
           <meshStandardMaterial color="#334155" metalness={0.8} roughness={0.3} />
         </mesh>
-        {/* Bulkhead glowing lens */}
         <mesh position={[0, 0, 0.045]}>
           <boxGeometry args={[0.12, 0.18, 0.02]} />
           <meshStandardMaterial
@@ -261,7 +287,6 @@ export const ModularCabin: React.FC<ModularCabinProps> = ({ cabin, cameraMode, d
         )}
       </group>
 
-      {/* 7. Nested Doors */}
       {cabin.doors.map((door) => (
         <DoorMesh
           key={door.id}
@@ -272,7 +297,6 @@ export const ModularCabin: React.FC<ModularCabinProps> = ({ cabin, cameraMode, d
         />
       ))}
 
-      {/* 8. Nested Windows */}
       {cabin.windows.map((win) => (
         <WindowMesh
           key={win.id}

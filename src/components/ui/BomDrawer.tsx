@@ -88,15 +88,29 @@ export const BomDrawer: React.FC = () => {
         {/* Cost Summary Box */}
         <div className="mt-6 p-4 rounded-2xl bg-slate-800/60 border border-slate-700/60 space-y-2 text-xs">
           <div className="flex justify-between text-slate-400">
-            <span>Material Subtotal</span>
-            <span className="font-mono text-slate-200">₹{bom.subtotal.toLocaleString("en-IN")}</span>
+            <span>Room & Equipment Subtotal</span>
+            <span className="font-mono text-slate-200">
+              ₹{(bom.subtotal - bom.foundationOrCanopyCost).toLocaleString("en-IN")}
+            </span>
+          </div>
+          <div className="flex justify-between text-slate-400">
+            <span>Plinth / Terrace Grid & Heat Roof</span>
+            <span className="font-mono text-slate-200">
+              ₹{bom.foundationOrCanopyCost.toLocaleString("en-IN")}
+            </span>
           </div>
           <div className="flex justify-between text-slate-400">
             <span>Standard Prefab GST (18%)</span>
             <span className="font-mono text-slate-200">₹{bom.tax.toLocaleString("en-IN")}</span>
           </div>
+          <div className="flex justify-between text-slate-400">
+            <span>Transport + Crane / Assembly</span>
+            <span className="font-mono text-amber-300">
+              ₹{(bom.transportCost + bom.craneOrAssemblyCost).toLocaleString("en-IN")}
+            </span>
+          </div>
           <div className="pt-2 border-t border-slate-700/80 flex justify-between text-sm font-bold">
-            <span className="text-white">Estimated Grand Total</span>
+            <span className="text-white">True Landed Total</span>
             <span className="font-mono text-emerald-400">₹{bom.totalCost.toLocaleString("en-IN")}</span>
           </div>
         </div>

@@ -125,18 +125,24 @@ export const EnvironmentBackdrop: React.FC<EnvironmentBackdropProps> = ({
         />
       </mesh>
 
-      {/* High-Tech Architectural Placement Grid & Radial Ring */}
-      <gridHelper
-        args={[30, 30, isNight ? "#38bdf8" : "#94a3b8", isNight ? "#1e293b" : "#cbd5e1"]}
-        position={[0, 0.005, 0]}
-      />
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.006, 0]}>
-        <ringGeometry args={[11.8, 12.0, 64]} />
+      {/* Subtle Home Plot Border Marker (replaces harsh CAD wireframe grid) */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.005, 0]}>
+        <ringGeometry args={[6.8, 6.95, 64]} />
         <meshBasicMaterial
-          color={isNight ? "#06b6d4" : "#64748b"}
+          color={isNight ? "#38bdf8" : "#ffffff"}
           transparent
-          opacity={isNight ? 0.35 : 0.25}
+          opacity={isNight ? 0.25 : 0.22}
           side={THREE.DoubleSide}
+        />
+      </mesh>
+      {/* Subtle 20x8 ft Pad Indicator */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, 0]} receiveShadow>
+        <planeGeometry args={[6.4, 2.8]} />
+        <meshStandardMaterial
+          color={environment === "urban" ? "#475569" : "#334155"}
+          transparent
+          opacity={0.18}
+          roughness={0.9}
         />
       </mesh>
 

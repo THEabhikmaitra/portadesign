@@ -2,21 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireRole } from "@/lib/authGuard";
 import fs from "fs";
 import path from "path";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const isPublicOnly = searchParams.get("public") === "true";
-
     const session = await getServerSession(authOptions);
 
     const where: any = {};
     if (isPublicOnly) {
       where.isPublic = true;
-    } else if (session?.user) {
-      where.userId = (session.user as any).id;
+    } else if ((session?.user as any)?.id) {
+      where.userId = (session?.user as any).id;
     } else {
       where.isPublic = true;
     }
@@ -44,20 +46,10 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    // If not logged in, fallback to default demo Buyer user
-    let userId = (session?.user as any)?.id;
-    if (!userId) {
-      const defaultBuyer = await prisma.user.findFirst({
-        where: { role: "BUYER" },
-      });
-      userId = defaultBuyer?.id;
-    }
+    const auth = await requireRole(["BUYER", "VENDOR", "ADMIN"]);
+    if (auth.error) return auth.error;
 
-    if (!userId) {
-      return NextResponse.json({ error: "User required to save design" }, { status: 401 });
-    }
-
+    const userId = auth.actor.id;
     const body = await req.json();
     const {
       title,
@@ -73,14 +65,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Title and scene configuration required" }, { status: 400 });
     }
 
-    // Generate unique SEO slug
     const cleanTitle = title
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/(^-|-$)+/g, "");
-    const slug = `${cleanTitle}-${Math.random().toString(36).substring(2, 7)}`;
+    const slug = `${cleanTitle || "room"}-${Math.random().toString(36).substring(2, 7)}`;
 
-    // Save snapshot image to /public/uploads/previews/
     let previewImagePath: string | null = null;
     if (snapshotBase64 && snapshotBase64.startsWith("data:image")) {
       try {
@@ -123,7 +113,6 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Award XP to user for creating a design
     await prisma.user.update({
       where: { id: userId },
       data: { xp: { increment: 150 } },

@@ -1,11 +1,12 @@
 "use client";
 
-import React, { Suspense } from "react";
+import React, { Suspense, useEffect } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, ContactShadows } from "@react-three/drei";
 import { ModularCabin } from "@/components/canvas/ModularCabin";
 import { EquipmentAssembly } from "@/components/canvas/EquipmentAssembly";
 import { EnvironmentBackdrop } from "@/components/canvas/EnvironmentBackdrop";
+import { useStudioStore } from "@/store/useStudioStore";
 
 interface DesignViewer3DProps {
   scene: {
@@ -17,6 +18,11 @@ interface DesignViewer3DProps {
 }
 
 export const DesignViewer3D: React.FC<DesignViewer3DProps> = ({ scene }) => {
+  const loadCatalog = useStudioStore((state) => state.loadCatalog);
+  useEffect(() => {
+    loadCatalog();
+  }, [loadCatalog]);
+
   const cabins = scene?.cabins || [];
   const equipment = scene?.equipment || [];
   const environment = (scene?.environment as any) || "desert";

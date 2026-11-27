@@ -1,9 +1,16 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import dynamicImport from "next/dynamic";
 import { prisma } from "@/lib/prisma";
 import { RemixButton } from "./RemixButton";
-import { DesignViewer3D } from "./DesignViewer3D";
+
+export const dynamic = "force-dynamic";
+
+const DesignViewer3D = dynamicImport(
+  () => import("./DesignViewer3D").then((m) => m.DesignViewer3D),
+  { ssr: false }
+);
 import {
   Building2,
   Calendar,
@@ -97,7 +104,7 @@ export default async function PublicDesignPage({ params }: Props) {
       availability: "https://schema.org/InStock",
       seller: {
         "@type": "Organization",
-        name: "QuickCabin Modular & Certified Indian Fabricators",
+        name: "Verified PORTADESIGN Modular Fabricators",
       },
     },
     category: "Modular Portacabin / Prefab Architecture",

@@ -4,10 +4,9 @@ import React, { useEffect, useState } from "react";
 import { useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { useStudioStore } from "@/store/useStudioStore";
-import { EQUIPMENT_CATALOG, validateEquipmentPlacement } from "@/lib/equipmentCatalog";
 
 export const GhostPreview: React.FC = () => {
-  const { raycaster, camera, scene } = useThree();
+  const { raycaster, camera } = useThree();
   const activePlacement = useStudioStore((state) => state.activePlacement);
   const ghostPosition = useStudioStore((state) => state.ghostPosition);
   const setGhostPosition = useStudioStore((state) => state.setGhostPosition);
@@ -16,10 +15,10 @@ export const GhostPreview: React.FC = () => {
   const cancelPlacement = useStudioStore((state) => state.cancelPlacement);
   const addEquipment = useStudioStore((state) => state.addEquipment);
   const cabins = useStudioStore((state) => state.cabins);
+  const catalogElements = useStudioStore((state) => state.catalogElements);
 
   const [isValidPlacement, setIsValidPlacement] = useState(true);
 
-  // 'R' key listener for 90-degree rotation & Escape to cancel
   useEffect(() => {
     if (!activePlacement.itemType) return;
 
@@ -35,12 +34,10 @@ export const GhostPreview: React.FC = () => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [activePlacement.itemType, rotatePlacement, cancelPlacement]);
 
-  // Raycasting pointer move on ground / cabin
   useEffect(() => {
     if (!activePlacement.itemType) return;
 
     const handlePointerMove = (e: PointerEvent) => {
-      // Normalized device coordinates
       const mouse = new THREE.Vector2(
         (e.clientX / window.innerWidth) * 2 - 1,
         -(e.clientY / window.innerHeight) * 2 + 1
@@ -48,23 +45,19 @@ export const GhostPreview: React.FC = () => {
 
       raycaster.setFromCamera(mouse, camera);
 
-      // Raycast against the ground plane Y = 0 or roof planes
       const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
       const intersection = new THREE.Vector3();
       const hit = raycaster.ray.intersectPlane(groundPlane, intersection);
 
       if (hit) {
-        // Grid snapping (0.5m grid)
         const snapX = Math.round(intersection.x * 2) / 2;
         const snapZ = Math.round(intersection.z * 2) / 2;
         let snapY = 0;
 
-        // Check if cursor is hovering over a cabin roof or interior
-        const eqDef = EQUIPMENT_CATALOG[activePlacement.itemType || ""];
-        if (eqDef?.allowedZones.includes("ROOF_TOP")) {
-          // Snap to top of nearest cabin
+        const elDef = catalogElements.find((el) => el.code === activePlacement.itemType);
+        if (elDef?.mountZone === "ROOF_TOP") {
           snapY = 2.62;
-        } else if (eqDef?.allowedZones.includes("WALL_INTERIOR") || eqDef?.allowedZones.includes("WALL_EXTERIOR")) {
+        } else if (elDef?.mountZone === "WALL_INTERIOR" || elDef?.mountZone === "WALL_EXTERIOR") {
           snapY = 1.6;
         }
 
@@ -101,16 +94,21 @@ export const GhostPreview: React.FC = () => {
     placementRotation,
     addEquipment,
     cabins,
+    catalogElements,
     setGhostPosition,
   ]);
 
   if (!activePlacement.itemType || !ghostPosition) return null;
 
+  const elDef = catalogElements.find((el) => el.code === activePlacement.itemType);
+  const bw = Number(elDef?.dimensions?.width) || 1.2;
+  const bh = Number(elDef?.dimensions?.height) || 1.2;
+  const bd = Number(elDef?.dimensions?.depth) || 1.2;
+
   return (
     <group position={ghostPosition} rotation={[0, placementRotation, 0]}>
-      {/* Holographic Glowing Ghost Wireframe Mesh */}
       <mesh>
-        <boxGeometry args={[1.2, 1.2, 1.2]} />
+        <boxGeometry args={[bw, bh, bd]} />
         <meshStandardMaterial
           color={isValidPlacement ? "#10b981" : "#ef4444"}
           emissive={isValidPlacement ? "#10b981" : "#ef4444"}
@@ -121,7 +119,6 @@ export const GhostPreview: React.FC = () => {
         />
       </mesh>
 
-      {/* Magnetic Green Alignment Snap Rings */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.55, 0]}>
         <ringGeometry args={[0.7, 0.85, 32]} />
         <meshBasicMaterial
@@ -132,7 +129,6 @@ export const GhostPreview: React.FC = () => {
         />
       </mesh>
 
-      {/* Floating HUD Tooltip */}
       <mesh position={[0, 1.4, 0]}>
         <sphereGeometry args={[0.08, 12, 12]} />
         <meshBasicMaterial color="#10b981" />

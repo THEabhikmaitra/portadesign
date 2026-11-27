@@ -8,35 +8,49 @@ datasource db {
 }
 
 model User {
-  id           String         @id @default(cuid())
-  email        String         @unique
-  name         String?
-  password     String
-  role         String         @default("BUYER") // BUYER, VENDOR, ADMIN
-  xp           Int            @default(0)
-  badgesJson   String         @default("[]")
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  id         String   @id @default(cuid())
+  email      String   @unique
+  name       String?
+  phone      String?
+  password   String
+  role       String   @default("BUYER") // BUYER, VENDOR, ADMIN
+  status     String   @default("ACTIVE") // ACTIVE, SUSPENDED, BANNED
+  banReason  String?
+  xp         Int      @default(0)
+  badgesJson String   @default("[]")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   vendorProfile VendorProfile?
   designs       Design[]
-  quotesSent    QuoteRequest[] @relation("BuyerQuotes")
+  quotesSent    QuoteRequest[]  @relation("BuyerQuotes")
+  auditLogs     AdminAuditLog[] @relation("AuditActor")
 }
 
 model VendorProfile {
-  id              String           @id @default(cuid())
-  userId          String           @unique
+  id              String   @id @default(cuid())
+  userId          String   @unique
   companyName     String
   contactEmail    String
   phone           String?
   city            String
-  leadDays        Int              @default(14)
-  warrantyYears   Int              @default(5)
-  rating          Float            @default(4.8)
-  isSponsored     Boolean          @default(false)
-  sponsoredBidAmt Float            @default(0.0)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  gstin           String?
+  kycDocUrl       String?
+  approvalStatus  String   @default("PENDING") // PENDING, APPROVED, REJECTED, SUSPENDED
+  approvalNotes   String?
+  leadDays        Int      @default(14)
+  warrantyYears   Int      @default(5)
+  rating          Float    @default(4.5)
+  isSponsored     Boolean  @default(false)
+  sponsoredBidAmt Float    @default(0.0)
+  adStatus        String   @default("PAUSED") // ACTIVE, PAUSED, CAPPED
+  adHeadline      String?
+  adDailyCap      Float    @default(500.0)
+  adSpentMonth    Float    @default(0.0)
+  adImpressions   Int      @default(0)
+  adClicks        Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   rateCards      VendorRateCard[]
@@ -46,44 +60,123 @@ model VendorProfile {
 model MasterElement {
   id              String   @id @default(cuid())
   category        String   // CABIN, DOOR, WINDOW, EQUIPMENT, STAIRS, POD
+  subCategory     String?  // HVAC, SOLAR, PLUMBING, ACCESS, INTERIOR, LIGHTING, SECURITY
   code            String   @unique
   name            String
+  friendlyName    String?
   description     String?
   mountZone       String?  // WALL_EXTERIOR, WALL_INTERIOR, ROOF_TOP, FLOOR_INTERIOR, PERIMETER_EDGE
-  dimensionsJson  String   // { width, height, length, weight }
+  dimensionsJson  String   // { width, height, length, depth, weightKg }
   baseCost        Float    @default(0)
-  threeConfigJson String?  // 3D procedural dimensions & shape parameters
+  optionsJson     String   @default("{}") // { spotLabel, brands[], capacities[], finishes[] }
+  threeConfigJson String?  // { renderer, primitives: [...] }
+  iconUrl         String?
+  imageUrl        String?
+  isActive        Boolean  @default(true)
+  sortOrder       Int      @default(0)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
 
 model MasterAttribute {
   id           String   @id @default(cuid())
-  category     String   // GLASS_TYPE, FRAME_MATERIAL, BRAND, WALL_FINISH, SOLAR_CAPACITY
+  category     String   // GLASS_TYPE, FRAME_MATERIAL, BRAND, WALL_FINISH, SOLAR_CAPACITY, INSULATION
   code         String   @unique
   name         String
-  brand        String?  // Saint-Gobain, AIS, Daikin, Voltas, Tata Solar, etc.
-  specsJson    String?  // Specs: { uValue, shgc, powerW, btu, noiseDb, etc. }
-  shaderJson   String   // Three.js PBR shader: { roughness, metalness, color, transmission, ior, clearcoat, opacity }
+  friendlyName String?
+  brand        String?
+  specsJson    String?
+  shaderJson   String   // Three.js PBR shader values
   costModifier Float    @default(0)
+  iconUrl      String?
+  textureUrl   String?
+  isActive     Boolean  @default(true)
+  sortOrder    Int      @default(0)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
 
 model VendorRateCard {
-  id                     String        @id @default(cuid())
+  id                     String   @id @default(cuid())
   vendorId               String
   elementCode            String
   baseUnitPrice          Float
-  attributeModifiersJson String        @default("{}") // { [attrCode]: modifierPrice }
-  leadTimeDays           Int           @default(14)
+  attributeModifiersJson String   @default("{}")
+  leadTimeDays           Int      @default(14)
   warrantyNotes          String?
-  createdAt              DateTime      @default(now())
-  updatedAt              DateTime      @updatedAt
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 
   vendor VendorProfile @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
   @@unique([vendorId, elementCode])
+}
+
+model RoomPreset {
+  id               String   @id @default(cuid())
+  code             String   @unique
+  title            String
+  subtitle         String
+  sizeLabel        String
+  approxPriceLabel String
+  badge            String?
+  iconName         String?
+  thumbUrl         String?
+  environment      String   @default("forest")
+  targetBudget     Float    @default(380000)
+  sceneJson        String   // { cabins: [], equipment: [] }
+  isActive         Boolean  @default(true)
+  sortOrder        Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model DesignChallenge {
+  id           String   @id @default(cuid())
+  code         String   @unique
+  title        String
+  description  String
+  badgeName    String
+  badgeIcon    String   @default("🏆")
+  badgeIconUrl String?
+  rewardXp     Int      @default(300)
+  rulesJson    String   // Array of declarative ChallengeRule objects
+  isActive     Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model LogisticsDefaults {
+  id                     String   @id @default("singleton")
+  gstRatePct             Float    @default(18)
+  transportPerKm20ft     Float    @default(85)
+  transportPerKm40ft     Float    @default(115)
+  craneGroundFee         Float    @default(6500)
+  craneTerraceFee        Float    @default(18500)
+  knockDownPerKm         Float    @default(45)
+  knockDownAssemblyFee   Float    @default(18000)
+  foundationGroundFee    Float    @default(6500)
+  foundationUpperFee     Float    @default(12000)
+  puf50mmCost            Float    @default(14000)
+  flyRoofCanopyPrice     Float    @default(24000)
+  defaultRefurbDiscount  Float    @default(38)
+  defaultUsedWwtDiscount Float    @default(55)
+  minBidAmount           Float    @default(10)
+  maxBidAmount           Float    @default(500)
+  updatedAt              DateTime @updatedAt
+}
+
+model AdminAuditLog {
+  id         String   @id @default(cuid())
+  actorId    String
+  action     String
+  targetType String
+  targetId   String?
+  diffJson   String?
+  createdAt  DateTime @default(now())
+
+  actor User @relation("AuditActor", fields: [actorId], references: [id], onDelete: Cascade)
 }
 
 model Design {
@@ -111,8 +204,8 @@ model DesignVersion {
   designId      String
   versionNumber Int      @default(1)
   commitNote    String   @default("Initial layout")
-  sceneJson     String   // Full 3D cabin layout, equipment coordinates, attributes, environment
-  bomJson       String   // Bill of materials JSON with computed costs and counts
+  sceneJson     String
+  bomJson       String
   snapshotUrl   String?
   createdAt     DateTime @default(now())
 
@@ -126,7 +219,7 @@ model QuoteRequest {
   vendorId        String
   status          String        @default("PENDING") // PENDING, NEGOTIATING, ACCEPTED, REJECTED
   negotiatedTotal Float
-  messagesJson    String        @default("[]") // [{ id, sender: 'BUYER'|'VENDOR', text, timestamp, offerAmount }]
+  messagesJson    String        @default("[]")
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
