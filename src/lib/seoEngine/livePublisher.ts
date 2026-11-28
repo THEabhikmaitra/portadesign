@@ -6,6 +6,8 @@ import { promisify } from "util";
 import { prisma } from "@/lib/prisma";
 import { getGuidesStorageDir, mapDbPostToBundle } from "./guideReader";
 import { scoreSeoPost } from "./complianceScorer";
+import { getPublicSiteSeoConfig } from "./siteConfigReader";
+import { broadcastUrlsToIndexers } from "./indexingService";
 
 const execFileAsync = promisify(execFile);
 
@@ -13,6 +15,7 @@ export interface PushLiveOptions {
   postId: string;
   webhookUrl?: string;
   gitPush?: boolean;
+  pingIndexers?: boolean;
   commitMessage?: string;
 }
 
@@ -22,6 +25,7 @@ export async function pushApprovedPostToLive(opts: PushLiveOptions): Promise<{
   filePath: string;
   webhookSynced: boolean;
   gitPushed: boolean;
+  indexingResult?: any;
   message: string;
 }> {
   const row = await prisma.seoPost.findUnique({ where: { id: opts.postId } });
@@ -113,12 +117,24 @@ export async function pushApprovedPostToLive(opts: PushLiveOptions): Promise<{
     gitPushed = true;
   }
 
+  let indexingResult: any = undefined;
+  if (opts.pingIndexers) {
+    try {
+      const cfg = await getPublicSiteSeoConfig();
+      const targetPageUrl = `${cfg.siteUrl}/guides/${publishedBundle.slug}`;
+      indexingResult = await broadcastUrlsToIndexers([targetPageUrl, `${cfg.siteUrl}/guides`], "URL_UPDATED", true);
+    } catch (idxErr: any) {
+      indexingResult = { error: idxErr?.message || "Indexer ping failed" };
+    }
+  }
+
   return {
     success: true,
     slug: publishedBundle.slug,
     filePath: `src/content/guides/${publishedBundle.slug}.json`,
     webhookSynced,
     gitPushed,
+    indexingResult,
     message: gitPushed
       ? `Published & git-pushed src/content/guides/${publishedBundle.slug}.json to origin/main.`
       : webhookSynced

@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireRole, logAdminAction } from "@/lib/authGuard";
@@ -6,8 +8,10 @@ import { GLOBAL_PREFAB_TOPICS } from "@/lib/seoEngine/defaultTopics";
 import { appendDeepSectionToPost, generateFullSeoArticle } from "@/lib/seoEngine/pipelineOrchestrator";
 import { loadGroundedCatalog } from "@/lib/seoEngine/catalogGrounder";
 import { countWords, scoreSeoPost, slugifySeo } from "@/lib/seoEngine/complianceScorer";
-import { mapDbPostToBundle } from "@/lib/seoEngine/guideReader";
-import { SeoGeoTarget, SeoIntentType, SeoSectionBlock } from "@/lib/seoEngine/types";
+import { buildSchemaJsonLd, getGuidesStorageDir, mapDbPostToBundle } from "@/lib/seoEngine/guideReader";
+import { humanizeSectionsWithAi, humanizeTextPlain } from "@/lib/seoEngine/humanizerPass";
+import { auditSeoPostQuality } from "@/lib/seoEngine/qualityAuditor";
+import { SeoFaqItem, SeoGeoTarget, SeoIntentType, SeoKeyStat, SeoSectionBlock } from "@/lib/seoEngine/types";
 
 export const dynamic = "force-dynamic";
 
@@ -45,11 +49,15 @@ export async function GET() {
       detectLlmProviders(),
     ]);
 
-    const posts = postRows.map((row) => ({
-      id: row.id,
-      ...mapDbPostToBundle(row),
-      updatedAt: row.updatedAt.toISOString(),
-    }));
+    const posts = postRows.map((row) => {
+      const bundle = mapDbPostToBundle(row);
+      return {
+        id: row.id,
+        ...bundle,
+        qualityAudit: auditSeoPostQuality(bundle),
+        updatedAt: row.updatedAt.toISOString(),
+      };
+    });
 
     return NextResponse.json({ queue, posts, providers });
   } catch (error: any) {
@@ -100,11 +108,145 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, topic: item });
     }
 
+    if (action === "AUDIT_QUALITY") {
+      const row = await prisma.seoPost.findUnique({ where: { id: String(body.postId) } });
+      if (!row) return NextResponse.json({ error: "Post not found" }, { status: 404 });
+      const bundle = mapDbPostToBundle(row);
+      const draftSections: SeoSectionBlock[] = Array.isArray(body.sections) ? body.sections : bundle.sections;
+      const draftTitle = typeof body.title === "string" ? body.title : bundle.title;
+      const draftMetaTitle = typeof body.metaTitle === "string" ? body.metaTitle : bundle.metaTitle;
+      const draftMetaDesc = typeof body.metaDesc === "string" ? body.metaDesc : bundle.metaDesc;
+      const draftTldr = typeof body.tldrAnswer === "string" ? body.tldrAnswer : bundle.tldrAnswer;
+      const draftMarkdown =
+        typeof body.contentMarkdown === "string"
+          ? body.contentMarkdown
+          : [
+              `> **Direct Answer (${bundle.targetGeo}):** ${draftTldr}\n\nExplore layouts in [MyPrefabRoom 3D](/) or [Guides Library](/guides).`,
+              ...draftSections.map((s) => `## ${s.heading}\n\n${s.markdown}`),
+            ].join("\n\n");
+
+      const qualityAudit = auditSeoPostQuality({
+        ...bundle,
+        title: draftTitle,
+        metaTitle: draftMetaTitle,
+        metaDesc: draftMetaDesc,
+        tldrAnswer: draftTldr,
+        sections: draftSections,
+        contentMarkdown: draftMarkdown,
+      });
+      return NextResponse.json({ success: true, qualityAudit });
+    }
+
     if (!isLocalSeoEngineAllowed()) {
       return NextResponse.json(
         { error: "AI Content Engine is restricted to local workstation. Generate locally, review HITL, then Push to Live." },
         { status: 403 }
       );
+    }
+
+    if (action === "AI_HUMANIZE_POST") {
+      const row = await prisma.seoPost.findUnique({ where: { id: String(body.postId) } });
+      if (!row) return NextResponse.json({ error: "Post not found" }, { status: 404 });
+
+      const bundle = mapDbPostToBundle(row);
+      const rawSections: SeoSectionBlock[] = Array.isArray(body.sections) ? body.sections : bundle.sections;
+      const humanPass = await humanizeSectionsWithAi(rawSections, {
+        keyword: bundle.keyword,
+        llmConfig: body.llmConfig,
+      });
+      const cleanSections = humanPass.sections.map((s) => ({
+        ...s,
+        heading: humanizeTextPlain(s.heading),
+      }));
+      const cleanTitle = humanizeTextPlain(typeof body.title === "string" ? body.title : bundle.title);
+      const cleanMetaTitle = humanizeTextPlain(typeof body.metaTitle === "string" ? body.metaTitle : bundle.metaTitle);
+      const cleanMetaDesc = humanizeTextPlain(typeof body.metaDesc === "string" ? body.metaDesc : bundle.metaDesc);
+      const cleanTldr = humanizeTextPlain(typeof body.tldrAnswer === "string" ? body.tldrAnswer : bundle.tldrAnswer);
+      const cleanFaqs: SeoFaqItem[] = (bundle.faqs || []).map((f) => ({
+        ...f,
+        question: humanizeTextPlain(f.question),
+        answer: humanizeTextPlain(f.answer),
+      }));
+      const cleanKeyStats: SeoKeyStat[] = (bundle.keyStats || []).map((k) => ({
+        ...k,
+        label: humanizeTextPlain(k.label),
+        value: humanizeTextPlain(k.value),
+        context: humanizeTextPlain(k.context),
+      }));
+
+      const catalog = await loadGroundedCatalog((row.targetGeo as SeoGeoTarget) || "GLOBAL");
+      const compiledMarkdown = [
+        humanizeTextPlain(
+          `> **Direct Answer (${row.targetGeo}):** ${cleanTldr}\n\nExplore layouts in [MyPrefabRoom 3D](/), browse our [Guides Library](/guides), or read our [editorial methodology](/about).`
+        ),
+        ...cleanSections.map((s) => `## ${s.heading}\n\n${s.markdown}`),
+        humanizeTextPlain(
+          `## Methodology & Verified Citations\n\nAll base prices, freight formulas, crane fees, thermal drops, and warranties were benchmarked across ${catalog.vendorCount} active fabricators (${catalog.avgWarrantyYears}-year avg warranty).`
+        ),
+      ].join("\n\n");
+
+      const score = scoreSeoPost({
+        title: cleanTitle,
+        slug: row.slug,
+        metaTitle: cleanMetaTitle,
+        metaDesc: cleanMetaDesc,
+        keyword: row.keyword,
+        tldrAnswer: cleanTldr,
+        contentMarkdown: compiledMarkdown,
+        faqs: cleanFaqs,
+        keyStats: cleanKeyStats,
+        citations: bundle.citations,
+        vendors: bundle.vendors,
+        ymylDisclaimer: row.ymylDisclaimer,
+        sponsorshipDisclosure: row.sponsorshipDisclosure,
+        authorName: row.authorName,
+        reviewerName: row.reviewerName,
+      });
+
+      const updatedRow = await prisma.seoPost.update({
+        where: { id: row.id },
+        data: {
+          title: cleanTitle,
+          metaTitle: cleanMetaTitle,
+          metaDesc: cleanMetaDesc,
+          tldrAnswer: cleanTldr,
+          sectionsJson: JSON.stringify(cleanSections),
+          faqJson: JSON.stringify(cleanFaqs),
+          keyStatsJson: JSON.stringify(cleanKeyStats),
+          contentMarkdown: compiledMarkdown,
+          wordCount: score.wordCount,
+          readingMinutes: Math.max(20, Math.round(score.wordCount / 220)),
+          scoreJson: JSON.stringify(score),
+        },
+      });
+
+      const updatedBundle = mapDbPostToBundle(updatedRow);
+      if (updatedRow.status === "PUBLISHED") {
+        const guidesDir = getGuidesStorageDir();
+        const filePath = path.join(guidesDir, `${updatedRow.slug}.json`);
+        const withSchema = {
+          ...updatedBundle,
+          schemaJsonLd: buildSchemaJsonLd({
+            ...updatedBundle,
+            sections: cleanSections,
+            vendors: updatedBundle.vendors,
+          }),
+        };
+        fs.writeFileSync(filePath, JSON.stringify(withSchema, null, 2), "utf8");
+      }
+
+      const qualityAudit = auditSeoPostQuality(updatedBundle);
+      await logAdminAction(auth.actor.id, "SEO_AI_HUMANIZE_POST", "SeoPost", row.id, {
+        engineUsed: humanPass.engineUsed,
+        grade: qualityAudit.grade,
+        pct: qualityAudit.pct,
+      });
+
+      return NextResponse.json({
+        success: true,
+        engineUsed: humanPass.engineUsed,
+        post: { id: updatedRow.id, ...updatedBundle, qualityAudit },
+      });
     }
 
     if (action === "APPEND_SECTION") {

@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { postId, webhookUrl, gitPush, commitMessage } = body;
+    const { postId, webhookUrl, gitPush, pingIndexers, commitMessage } = body;
     if (!postId) {
       return NextResponse.json({ error: "postId required" }, { status: 400 });
     }
@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
       postId: String(postId),
       webhookUrl: webhookUrl ? String(webhookUrl) : undefined,
       gitPush: Boolean(gitPush),
+      pingIndexers: Boolean(pingIndexers),
       commitMessage: commitMessage ? String(commitMessage) : undefined,
     });
 

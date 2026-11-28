@@ -1,9 +1,11 @@
 import React from "react";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { ArrowRight, BookOpen, ShieldCheck, Globe, Box } from "lucide-react";
+import { ArrowRight, BookOpen, ShieldCheck, Globe } from "lucide-react";
 import { listPublishedGuides } from "@/lib/seoEngine/guideReader";
 import { AdSenseSlot } from "@/components/seo/AdSenseSlot";
+import { SiteHeader } from "@/components/ui/SiteHeader";
+import { SiteFooter } from "@/components/ui/SiteFooter";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +13,15 @@ export const metadata: Metadata = {
   title: "Prefab Room Cost, Permits & Backyard Pod Guides",
   description:
     "In-depth, engineer-reviewed guides covering prefab ADUs, backyard office pods, UK garden rooms, rooftop portacabins, crane access, insulation & financing.",
+  alternates: { canonical: "/guides" },
+  authors: [{ name: "Arjun Mehta" }],
+  openGraph: {
+    title: "Prefab Room Cost, Permits & Backyard Pod Guides | MyPrefabRoom",
+    description: "In-depth, engineer-reviewed guides covering prefab ADUs, backyard office pods, UK garden rooms, rooftop portacabins, crane access, insulation & financing.",
+    type: "website",
+    url: "/guides",
+    siteName: "MyPrefabRoom",
+  },
 };
 
 export default async function GuidesIndexPage({
@@ -20,6 +31,60 @@ export default async function GuidesIndexPage({
 }) {
   const activeGeo = (searchParams?.geo || "ALL").toUpperCase();
   const guides = await listPublishedGuides(activeGeo);
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://myprefabroom.com").replace(/\/$/, "");
+
+  const pageModified = guides[0]?.pushedLiveAt || new Date().toISOString().split("T")[0] + "T00:00:00Z";
+
+  const collectionSchema = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "CollectionPage",
+        "@id": `${siteUrl}/guides#collection`,
+        url: `${siteUrl}/guides`,
+        name: "MyPrefabRoom Engineering & Cost Guide Library",
+        description: "Engineer-reviewed modular room buyer guides, zoning permits, crane logistics, and turnkey cost calculators.",
+        dateCreated: "2024-01-15",
+        dateModified: pageModified,
+        datePublished: "2024-01-15",
+        author: {
+          "@type": "Person",
+          "@id": `${siteUrl}#author-arjun-mehta`,
+          name: "Arjun Mehta",
+          jobTitle: "Modular Construction Specialist",
+        },
+        reviewedBy: {
+          "@type": "Person",
+          "@id": `${siteUrl}#reviewer-dr-priya-nair`,
+          name: "Dr. Priya Nair",
+          jobTitle: "Licensed Structural & Modular Building Reviewer (PE)",
+        },
+        publisher: {
+          "@type": "Organization",
+          "@id": `${siteUrl}#organization`,
+          name: "MyPrefabRoom",
+          url: siteUrl,
+        },
+        inLanguage: "en",
+        mainEntity: {
+          "@type": "ItemList",
+          itemListElement: guides.map((g, idx) => ({
+            "@type": "ListItem",
+            position: idx + 1,
+            name: g.title,
+            url: `${siteUrl}/guides/${g.slug}`,
+          })),
+        },
+      },
+      {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "Home", item: siteUrl },
+          { "@type": "ListItem", position: 2, name: "Guides", item: `${siteUrl}/guides` },
+        ],
+      },
+    ],
+  };
 
   const geos = [
     { id: "ALL", label: "All Regions" },
@@ -32,42 +97,23 @@ export default async function GuidesIndexPage({
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans">
-      <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-20">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-          <Link href="/" className="flex items-center space-x-2">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-emerald-400 to-cyan-400 flex items-center justify-center text-slate-950 font-black text-sm">
-              M
-            </div>
-            <span className="font-extrabold text-sm sm:text-base text-white">
-              MyPrefab<span className="text-emerald-400">Room</span>
-            </span>
-          </Link>
-          <div className="flex items-center space-x-3 text-xs">
-            <Link href="/about" className="text-slate-300 hover:text-white hidden sm:inline">
-              Methodology &amp; Team
-            </Link>
-            <Link
-              href="/"
-              className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950 font-bold inline-flex items-center space-x-1.5"
-            >
-              <Box className="w-3.5 h-3.5" />
-              <span>Open 3D Designer</span>
-            </Link>
-          </div>
-        </div>
-      </header>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionSchema) }}
+      />
+      <SiteHeader />
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-10 space-y-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-10 space-y-8">
         <div className="space-y-3 max-w-3xl">
           <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-semibold">
             <ShieldCheck className="w-3.5 h-3.5" />
-            <span>Engineer-Verified E-E-A-T Guides • Real Turnkey Benchmarks</span>
+            <span>Engineer-Reviewed Cost &amp; Planning Guides</span>
           </div>
           <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
-            Modular Room Cost, Zoning Permits &amp; Engineering Library
+            Modular Room Cost, Permit &amp; Buyer Guides
           </h1>
           <p className="text-sm sm:text-base text-slate-300">
-            Independent buyer guides grounded in live fabrication costs, structural roof-load physics, crane logistics, and regional planning codes.
+            Independent buyer guides grounded in real manufacturer pricing, structural load limits, delivery access, and local permit rules.
           </p>
         </div>
 
@@ -146,16 +192,7 @@ export default async function GuidesIndexPage({
         )}
       </main>
 
-      <footer className="border-t border-slate-800 bg-slate-900/50 py-8 mt-12 text-xs text-slate-400">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-wrap items-center justify-between gap-4">
-          <span>© {new Date().getFullYear()} MyPrefabRoom. Independent 3D Configurator &amp; Research.</span>
-          <div className="flex items-center space-x-4">
-            <Link href="/" className="hover:text-white">3D Configurator</Link>
-            <Link href="/about" className="hover:text-white">About &amp; E-E-A-T</Link>
-            <Link href="/privacy" className="hover:text-white">Privacy &amp; Disclaimers</Link>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

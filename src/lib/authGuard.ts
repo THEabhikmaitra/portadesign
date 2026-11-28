@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { headers } from "next/headers";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -13,9 +14,31 @@ export interface AuthenticatedActor {
   vendorApprovalStatus?: string;
 }
 
+export function isLocalAdminAllowed(): boolean {
+  if (process.env.ALLOW_REMOTE_ADMIN === "true") return true;
+  if (process.env.NODE_ENV !== "production") return true;
+  try {
+    const h = headers();
+    const host = (h.get("x-forwarded-host") || h.get("host") || "").toLowerCase();
+    return host.startsWith("localhost") || host.startsWith("127.0.0.1") || host.startsWith("[::1]");
+  } catch {
+    return false;
+  }
+}
+
 export async function requireRole(
   allowedRoles?: string[]
 ): Promise<{ actor: AuthenticatedActor; error?: never } | { actor?: never; error: NextResponse }> {
+  // Enforce local workstation restriction whenever ADMIN access is requested
+  if (allowedRoles?.includes("ADMIN") && !isLocalAdminAllowed()) {
+    return {
+      error: NextResponse.json(
+        { error: "Admin console is restricted to local workstation only." },
+        { status: 403 }
+      ),
+    };
+  }
+
   const session = await getServerSession(authOptions);
   const sessionUserId = (session?.user as any)?.id;
 

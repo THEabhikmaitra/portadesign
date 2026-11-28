@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { signOut, useSession } from "next-auth/react";
 import { useStudioStore } from "@/store/useStudioStore";
 import { EnvironmentType, CameraMode } from "@/types";
 import {
@@ -22,12 +23,17 @@ import {
   Layers,
   Wrench,
   Building2,
-  Cpu,
   Globe,
-  MoreHorizontal,
   Sparkles,
   Truck,
   BookOpen,
+  LogOut,
+  ShieldCheck,
+  User as UserIcon,
+  PiggyBank,
+  Thermometer,
+  Zap,
+  Target,
 } from "lucide-react";
 
 interface StudioToolbarProps {
@@ -39,7 +45,17 @@ export const StudioToolbar: React.FC<StudioToolbarProps> = ({
   onOpenEquipmentPicker,
   onOpenSaveModal,
 }) => {
-  const [moreOpen, setMoreOpen] = useState(false);
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [isEditingBudget, setIsEditingBudget] = useState(false);
+  const [budgetInput, setBudgetInput] = useState("");
+  const { data: session } = useSession();
+  const authUser =
+    (session?.user as {
+      name?: string;
+      email?: string;
+      role?: string;
+      image?: string;
+    } | undefined) || null;
 
   const environment = useStudioStore((state) => state.environment);
   const setEnvironment = useStudioStore((state) => state.setEnvironment);
@@ -64,6 +80,25 @@ export const StudioToolbar: React.FC<StudioToolbarProps> = ({
   const activeDrawer = useStudioStore((state) => state.activeDrawer);
   const setActiveDrawer = useStudioStore((state) => state.setActiveDrawer);
   const setShowPurposePicker = useStudioStore((state) => state.setShowPurposePicker);
+  const getBom = useStudioStore((state) => state.getBom);
+  const getScores = useStudioStore((state) => state.getScores);
+  const targetBudget = useStudioStore((state) => state.targetBudget);
+  const setTargetBudget = useStudioStore((state) => state.setTargetBudget);
+  const logistics = useStudioStore((state) => state.logistics);
+
+  const bom = getBom();
+  const scores = getScores();
+  const budgetPct = Math.min(100, Math.round((bom.totalCost / (targetBudget || 1)) * 100));
+  const isOverBudget = bom.totalCost > targetBudget;
+
+  const handleBudgetSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const val = parseInt(budgetInput.replace(/\D/g, ""), 10);
+    if (!isNaN(val) && val > 50000) {
+      setTargetBudget(val);
+    }
+    setIsEditingBudget(false);
+  };
 
   const cabinOptions = catalogElements.filter((el) => el.category === "CABIN");
 
@@ -80,175 +115,262 @@ export const StudioToolbar: React.FC<StudioToolbarProps> = ({
     { id: "firstperson", label: "Look Inside", icon: Compass },
   ];
 
+  const initials = (authUser?.name || authUser?.email || "")
+    .split(/[\s@]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase())
+    .join("");
+
+  const flyoutClass = (id: string, alignBottom = false) =>
+    `absolute ${alignBottom ? "bottom-0" : "top-0"} left-full pl-2 z-50 transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] origin-left ${
+      openMenu === id
+        ? "opacity-100 translate-x-0 scale-100 pointer-events-auto"
+        : "opacity-0 -translate-x-1.5 scale-95 pointer-events-none"
+    }`;
+
   return (
     <>
-      {/* Unified Non-Overlapping Top Navigation Bar */}
-      {moreOpen && (
+      {openMenu && (
         <div
-          className="fixed inset-0 z-30"
-          onClick={() => setMoreOpen(false)}
+          className="fixed inset-0 z-30 md:hidden"
+          onClick={() => setOpenMenu(null)}
           aria-hidden="true"
         />
       )}
-      <header className="fixed top-3 inset-x-3 z-40 flex items-center justify-between gap-2 pointer-events-none">
-        {/* Left: Brand & Site Selector */}
-        <div className="flex items-center space-x-1.5 p-1 bg-slate-950/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl pointer-events-auto shrink-0">
-          <button
-            onClick={() => setShowPurposePicker(true)}
-            className="flex items-center space-x-2 px-2.5 py-1 hover:bg-white/5 rounded-xl transition"
-            title="Choose Room Type"
-          >
-            <div className="w-5 h-5 rounded-md bg-gradient-to-tr from-emerald-400 to-cyan-400 flex items-center justify-center text-slate-950 font-black text-[11px] shadow-sm">
-              M
-            </div>
-            <span className="font-extrabold text-xs tracking-wide text-white hidden sm:inline">
-              MyPrefab<span className="text-emerald-400">Room</span>
-            </span>
-          </button>
 
-          <div className="w-px h-4 bg-white/10" />
-
-          {/* Environment Pills */}
-          {environments.map((env) => (
-            <button
-              key={env.id}
-              onClick={() => setEnvironment(env.id)}
-              aria-label={env.label}
-              className={`p-1.5 rounded-xl text-xs transition ${
-                environment === env.id
-                  ? "bg-white/15 text-white shadow-inner scale-105"
-                  : "text-slate-400 hover:text-white hover:bg-white/5"
-              }`}
-              title={env.label}
-            >
-              <span>{env.icon}</span>
-            </button>
-          ))}
-
-          {/* Day / Night Toggle */}
-          <button
-            onClick={toggleDayNight}
-            aria-label="Toggle Day or Night"
-            className={`p-1.5 rounded-xl transition ${
-              dayNight === "night"
-                ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
-                : "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-            }`}
-            title={dayNight === "night" ? "Switch to Daylight" : "Switch to Night Lights"}
-          >
-            {dayNight === "night" ? <Moon className="w-3.5 h-3.5" /> : <Sun className="w-3.5 h-3.5" />}
-          </button>
-        </div>
-
-        {/* Center: Plain Camera Modes */}
-        <div className="hidden md:flex items-center space-x-1 p-1 bg-slate-950/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl pointer-events-auto">
-          {cameraModes.map((cm) => {
-            const Icon = cm.icon;
-            const isActive = cameraMode === cm.id;
-            return (
-              <button
-                key={cm.id}
-                onClick={() => setCameraMode(cm.id)}
-                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
-                  isActive
-                    ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40"
-                    : "text-slate-300 hover:text-white hover:bg-white/5"
-                }`}
-              >
-                <Icon className="w-3.5 h-3.5" />
-                <span className="hidden lg:inline">{cm.label}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Right: Undo/Redo, Sound, Check Prices, Save & Share, More */}
-        <div className="flex items-center space-x-1 p-1 bg-slate-950/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl pointer-events-auto shrink-0 relative">
-          <button
-            onClick={undo}
-            disabled={historyIndex <= 0}
-            aria-label="Undo"
-            className="p-1.5 rounded-xl text-slate-400 hover:text-white disabled:opacity-25 hover:bg-white/5 transition"
-            title="Undo"
-          >
-            <Undo2 className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={redo}
-            disabled={historyIndex >= history.length - 1}
-            aria-label="Redo"
-            className="p-1.5 rounded-xl text-slate-400 hover:text-white disabled:opacity-25 hover:bg-white/5 transition"
-            title="Redo"
-          >
-            <Redo2 className="w-3.5 h-3.5" />
-          </button>
-
-          <button
-            onClick={toggleMute}
-            aria-label={isMuted ? "Unmute sound" : "Mute sound"}
-            className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition"
-            title={isMuted ? "Turn Sound On" : "Mute Sound"}
-          >
-            {isMuted ? <VolumeX className="w-3.5 h-3.5 text-red-400" /> : <Volume2 className="w-3.5 h-3.5 text-emerald-400" />}
-          </button>
-
-          <div className="w-px h-4 bg-white/10 mx-0.5" />
-
-          {/* Check Makers / Prices */}
-          <button
-            onClick={() => setActiveDrawer(activeDrawer === "quotes" ? null : "quotes")}
-            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
-              activeDrawer === "quotes"
-                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                : "text-emerald-300 hover:bg-emerald-500/15"
-            }`}
-          >
-            <Tag className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Get Quotes</span>
-          </button>
-
-          {/* Save & Share */}
-          <button
-            onClick={onOpenSaveModal}
-            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-bold text-xs transition shadow-md active:scale-95"
-          >
-            <Save className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Save & Share</span>
-          </button>
-
-          <div className="w-px h-4 bg-white/10 mx-0.5" />
-
-          {/* More Dropdown (Accessible on ALL viewports) */}
+      {/* Left-Side-Only 6-Icon Hover Rail */}
+      <aside
+        aria-label="Portal Controls"
+        className="fixed top-3 left-3 z-40 flex flex-col items-center gap-1.5 p-1.5 bg-white/95 backdrop-blur-xl border border-slate-200 rounded-2xl shadow-lg text-slate-800"
+      >
+        {/* 1. Brand / Ideas & Guides */}
+        <div
+          className="relative"
+          onMouseEnter={() => setOpenMenu("brand")}
+          onMouseLeave={() => setOpenMenu((m) => (m === "brand" ? null : m))}
+        >
           <button
             type="button"
-            onClick={() => setMoreOpen((prev) => !prev)}
-            aria-label="More options"
-            aria-expanded={moreOpen}
-            className={`flex items-center space-x-1 px-2 py-1.5 rounded-xl text-xs font-medium transition ${
-              moreOpen ? "bg-white/15 text-white" : "text-slate-300 hover:text-white hover:bg-white/10"
-            }`}
-            title="More options & Partner portals"
+            onClick={() => setShowPurposePicker(true)}
+            aria-label="MyPrefabRoom — Pick a Model"
+            className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-slate-100 transition"
           >
-            <MoreHorizontal className="w-4 h-4" />
+            <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center text-white font-black text-xs shadow-sm">
+              M
+            </div>
           </button>
 
-          {moreOpen && (
-            <div className="absolute top-full mt-2 right-0 w-56 bg-slate-950/95 backdrop-blur-xl border border-white/15 rounded-2xl shadow-2xl p-1.5 space-y-0.5 z-50 text-xs">
-              <div className="md:hidden pb-1 mb-1 border-b border-white/10 space-y-0.5">
+          <div className={flyoutClass("brand")}>
+              <div className="w-52 bg-white/95 backdrop-blur-xl border border-slate-200 rounded-2xl shadow-2xl p-1.5 space-y-0.5 text-xs text-slate-700">
+                <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase">MyPrefabRoom</div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPurposePicker(true);
+                    setOpenMenu(null);
+                  }}
+                  className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl text-emerald-700 hover:bg-slate-100 transition text-left"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Ready Room Ideas</span>
+                </button>
+                <a
+                  href="/guides"
+                  onClick={() => setOpenMenu(null)}
+                  className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl text-slate-700 hover:bg-slate-100 transition"
+                >
+                  <BookOpen className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Cost &amp; Permit Guides</span>
+                </a>
+              </div>
+          </div>
+        </div>
+
+        {/* 2. Environment & Day/Night */}
+        <div
+          className="relative"
+          onMouseEnter={() => setOpenMenu("env")}
+          onMouseLeave={() => setOpenMenu((m) => (m === "env" ? null : m))}
+        >
+          <button
+            type="button"
+            onClick={toggleDayNight}
+            aria-label="Site & Lighting"
+            className={`w-10 h-10 flex items-center justify-center rounded-xl transition ${
+              openMenu === "env"
+                ? "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
+                : "text-amber-600 hover:bg-slate-100"
+            }`}
+          >
+            {dayNight === "night" ? <Moon className="w-4 h-4 text-indigo-600" /> : <Sun className="w-4 h-4" />}
+          </button>
+
+          <div className={flyoutClass("env")}>
+              <div className="w-52 bg-white/95 backdrop-blur-xl border border-slate-200 rounded-2xl shadow-2xl p-1.5 space-y-0.5 text-xs text-slate-700">
+                <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase">Site &amp; Lighting</div>
+                {environments.map((env) => (
+                  <button
+                    key={env.id}
+                    type="button"
+                    onClick={() => {
+                      setEnvironment(env.id);
+                      setOpenMenu(null);
+                    }}
+                    className={`w-full flex items-center space-x-2 px-3 py-2 rounded-xl transition text-left ${
+                      environment === env.id
+                        ? "bg-emerald-50 text-emerald-700 font-semibold"
+                        : "hover:bg-slate-100"
+                    }`}
+                  >
+                    <span>{env.icon}</span>
+                    <span>{env.label}</span>
+                  </button>
+                ))}
+                <div className="my-1 border-t border-slate-200" />
+                <button
+                  type="button"
+                  onClick={toggleDayNight}
+                  className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl hover:bg-slate-100 transition text-left"
+                >
+                  {dayNight === "night" ? (
+                    <Sun className="w-3.5 h-3.5 text-amber-600" />
+                  ) : (
+                    <Moon className="w-3.5 h-3.5 text-indigo-600" />
+                  )}
+                  <span>{dayNight === "night" ? "Switch to Daylight" : "Switch to Night Lights"}</span>
+                </button>
+              </div>
+          </div>
+        </div>
+
+        {/* 3. Build (Rooms, 2nd Floor, Furniture, Transport) */}
+        <div
+          className="relative"
+          onMouseEnter={() => setOpenMenu("build")}
+          onMouseLeave={() => setOpenMenu((m) => (m === "build" ? null : m))}
+        >
+          <button
+            type="button"
+            onClick={onOpenEquipmentPicker}
+            aria-label="Build & Add Rooms"
+            className={`w-10 h-10 flex items-center justify-center rounded-xl transition ${
+              openMenu === "build"
+                ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                : "text-emerald-600 hover:bg-slate-100"
+            }`}
+          >
+            <Box className="w-4 h-4" />
+          </button>
+
+          <div className={flyoutClass("build")}>
+              <div className="w-56 bg-white/95 backdrop-blur-xl border border-slate-200 rounded-2xl shadow-2xl p-1.5 space-y-0.5 text-xs text-slate-700">
+                <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase">Add Structure</div>
+                {(cabinOptions.length > 0
+                  ? cabinOptions
+                  : [
+                      { code: "CABIN_20FT", friendlyName: "+ 160 sq.ft Room", iconUrl: null },
+                      { code: "CABIN_40FT", friendlyName: "+ 320 sq.ft Hall", iconUrl: null },
+                    ]
+                ).map((cab, idx) => (
+                  <button
+                    key={cab.code}
+                    type="button"
+                    onClick={() => {
+                      addCabin(cab.code);
+                      setOpenMenu(null);
+                    }}
+                    className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl hover:bg-slate-100 transition text-left font-medium"
+                  >
+                    {cab.iconUrl ? (
+                      <img src={cab.iconUrl} alt={cab.friendlyName || cab.code} className="w-4 h-4 rounded object-cover" />
+                    ) : (
+                      <Box className={`w-3.5 h-3.5 ${idx % 2 === 0 ? "text-emerald-600" : "text-cyan-600"}`} />
+                    )}
+                    <span className="truncate">
+                      {cab.friendlyName
+                        ? cab.friendlyName.startsWith("+")
+                          ? cab.friendlyName
+                          : `+ ${cab.friendlyName}`
+                        : `+ ${cab.code}`}
+                    </span>
+                  </button>
+                ))}
+                {cabins.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const last = cabins[cabins.length - 1];
+                      addCabin(last?.type || cabinOptions[0]?.code || "CABIN_20FT", 1, "top");
+                      setOpenMenu(null);
+                    }}
+                    className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl text-indigo-700 hover:bg-indigo-50 transition text-left font-medium"
+                  >
+                    <Layers className="w-3.5 h-3.5" />
+                    <span>+ 2nd Floor</span>
+                  </button>
+                )}
+                <div className="my-1 border-t border-slate-200" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    onOpenEquipmentPicker();
+                    setOpenMenu(null);
+                  }}
+                  className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl text-amber-700 hover:bg-amber-50 transition text-left font-semibold"
+                >
+                  <Wrench className="w-3.5 h-3.5" />
+                  <span>+ Furniture &amp; AC</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveDrawer(activeDrawer === "logistics" ? null : "logistics");
+                    setOpenMenu(null);
+                  }}
+                  className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl text-cyan-700 hover:bg-cyan-50 transition text-left font-semibold"
+                >
+                  <Truck className="w-3.5 h-3.5" />
+                  <span>2nd Hand &amp; Transport</span>
+                </button>
+              </div>
+          </div>
+        </div>
+
+        {/* 4. View & Tools */}
+        <div
+          className="relative"
+          onMouseEnter={() => setOpenMenu("view")}
+          onMouseLeave={() => setOpenMenu((m) => (m === "view" ? null : m))}
+        >
+          <button
+            type="button"
+            onClick={() => setCameraMode("orbit")}
+            aria-label="Camera & Tools"
+            className={`w-10 h-10 flex items-center justify-center rounded-xl transition ${
+              openMenu === "view"
+                ? "bg-cyan-50 text-cyan-700 ring-1 ring-cyan-200"
+                : "text-cyan-600 hover:bg-slate-100"
+            }`}
+          >
+            <Orbit className="w-4 h-4" />
+          </button>
+
+          <div className={flyoutClass("view")}>
+              <div className="w-56 bg-white/95 backdrop-blur-xl border border-slate-200 rounded-2xl shadow-2xl p-1.5 space-y-0.5 text-xs text-slate-700">
+                <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase">Camera &amp; Views</div>
                 {cameraModes.map((cm) => {
                   const Icon = cm.icon;
                   return (
                     <button
-                      key={`mob-${cm.id}`}
+                      key={cm.id}
                       type="button"
                       onClick={() => {
                         setCameraMode(cm.id);
-                        setMoreOpen(false);
+                        setOpenMenu(null);
                       }}
                       className={`w-full flex items-center space-x-2 px-3 py-2 rounded-xl transition text-left ${
-                        cameraMode === cm.id
-                          ? "bg-cyan-500/20 text-cyan-300 font-semibold"
-                          : "text-slate-300 hover:bg-white/10"
+                        cameraMode === cm.id ? "bg-cyan-50 text-cyan-700 font-semibold" : "hover:bg-slate-100"
                       }`}
                     >
                       <Icon className="w-3.5 h-3.5" />
@@ -256,148 +378,443 @@ export const StudioToolbar: React.FC<StudioToolbarProps> = ({
                     </button>
                   );
                 })}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCameraMode("xray");
+                    setOpenMenu(null);
+                  }}
+                  className={`w-full flex items-center space-x-2 px-3 py-2 rounded-xl transition text-left ${
+                    cameraMode === "xray" ? "bg-cyan-50 text-cyan-700 font-semibold" : "hover:bg-slate-100"
+                  }`}
+                >
+                  <Scan className="w-3.5 h-3.5 text-cyan-600" />
+                  <span>Steel Structure X-Ray</span>
+                </button>
+                <div className="my-1 border-t border-slate-200" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveDrawer(activeDrawer === "versions" ? null : "versions");
+                    setOpenMenu(null);
+                  }}
+                  className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl hover:bg-slate-100 transition text-left"
+                >
+                  <History className="w-3.5 h-3.5 text-cyan-600" />
+                  <span>Watch Build Steps</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveDrawer(activeDrawer === "challenges" ? null : "challenges");
+                    setOpenMenu(null);
+                  }}
+                  className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl hover:bg-slate-100 transition text-left"
+                >
+                  <Trophy className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Design Challenges</span>
+                </button>
+                <div className="my-1 border-t border-slate-200" />
+                <div className="flex items-center justify-between px-2 py-1">
+                  <button
+                    type="button"
+                    onClick={undo}
+                    disabled={historyIndex <= 0}
+                    aria-label="Undo"
+                    title="Undo"
+                    className="p-2 rounded-xl hover:bg-slate-100 disabled:opacity-30 transition"
+                  >
+                    <Undo2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={redo}
+                    disabled={historyIndex >= history.length - 1}
+                    aria-label="Redo"
+                    title="Redo"
+                    className="p-2 rounded-xl hover:bg-slate-100 disabled:opacity-30 transition"
+                  >
+                    <Redo2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={toggleMute}
+                    aria-label={isMuted ? "Unmute sound" : "Mute sound"}
+                    title={isMuted ? "Turn Sound On" : "Mute Sound"}
+                    className="p-2 rounded-xl hover:bg-slate-100 transition"
+                  >
+                    {isMuted ? (
+                      <VolumeX className="w-3.5 h-3.5 text-red-500" />
+                    ) : (
+                      <Volume2 className="w-3.5 h-3.5 text-emerald-600" />
+                    )}
+                  </button>
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowPurposePicker(true);
-                  setMoreOpen(false);
-                }}
-                className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl text-emerald-300 hover:bg-white/10 transition text-left"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Ready Room Ideas</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setCameraMode("xray");
-                  setMoreOpen(false);
-                }}
-                className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl text-slate-300 hover:bg-white/10 transition text-left"
-              >
-                <Scan className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Steel Structure X-Ray</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveDrawer(activeDrawer === "versions" ? null : "versions");
-                  setMoreOpen(false);
-                }}
-                className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl text-slate-300 hover:bg-white/10 transition text-left"
-              >
-                <History className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Watch Build Steps</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveDrawer(activeDrawer === "challenges" ? null : "challenges");
-                  setMoreOpen(false);
-                }}
-                className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl text-slate-300 hover:bg-white/10 transition text-left"
-              >
-                <Trophy className="w-3.5 h-3.5 text-amber-400" />
-                <span>Design Challenges</span>
-              </button>
-
-              <div className="my-1 border-t border-white/10" />
-              <div className="px-3 py-1 text-[10px] font-bold text-slate-500 uppercase">
-                Guides & Partner
-              </div>
-              <a
-                href="/guides"
-                onClick={() => setMoreOpen(false)}
-                className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl text-emerald-300 hover:text-white hover:bg-white/10 transition cursor-pointer"
-              >
-                <BookOpen className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Cost & Permit Guides</span>
-              </a>
-              <a
-                href="/vendor"
-                onClick={() => setMoreOpen(false)}
-                className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition cursor-pointer"
-              >
-                <Building2 className="w-3.5 h-3.5 text-amber-400" />
-                <span>Maker / Vendor Portal</span>
-              </a>
-              <a
-                href="/auth/signin"
-                onClick={() => setMoreOpen(false)}
-                className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition cursor-pointer"
-              >
-                <Globe className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Sign In / Register</span>
-              </a>
-            </div>
-          )}
+          </div>
         </div>
-      </header>
 
-      {/* Bottom Plain Action Dock */}
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center space-x-1.5 p-1.5 bg-slate-950/85 backdrop-blur-xl border border-white/15 rounded-2xl shadow-2xl max-w-[96vw] overflow-x-auto">
-        {(cabinOptions.length > 0
-          ? cabinOptions
-          : [
-              { code: "CABIN_20FT", friendlyName: "+ 160 sq.ft Room", iconUrl: null },
-              { code: "CABIN_40FT", friendlyName: "+ 320 sq.ft Hall", iconUrl: null },
-            ]
-        ).map((cab, idx) => (
+        {/* 5. Money Pot: Price, Budget, Comfort & Item List */}
+        <div
+          className="relative"
+          onMouseEnter={() => setOpenMenu("budget")}
+          onMouseLeave={() => setOpenMenu((m) => (m === "budget" ? null : m))}
+        >
           <button
-            key={cab.code}
-            onClick={() => addCabin(cab.code)}
-            className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white text-xs font-semibold transition border border-white/5 hover:border-white/20 shrink-0 active:scale-95"
-          >
-            {cab.iconUrl ? (
-              <img src={cab.iconUrl} alt={cab.friendlyName || cab.code} className="w-4 h-4 rounded object-cover" />
-            ) : (
-              <Box className={`w-4 h-4 ${idx % 2 === 0 ? "text-emerald-400" : "text-cyan-400"}`} />
-            )}
-            <span>
-              {(cab.friendlyName || cab.code).startsWith("+")
-                ? cab.friendlyName
-                : `+ ${cab.friendlyName || cab.code}`}
-            </span>
-          </button>
-        ))}
-
-        {cabins.length > 0 && (
-          <button
+            type="button"
             onClick={() => {
-              const last = cabins[cabins.length - 1];
-              addCabin(last?.type || cabinOptions[0]?.code || "CABIN_20FT", 1, "top");
+              if (cabins.length === 0) {
+                setShowPurposePicker(true);
+              } else {
+                setActiveDrawer(activeDrawer === "bom" ? null : "bom");
+              }
             }}
-            className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-200 text-xs font-semibold transition shrink-0 active:scale-95"
+            aria-label="Budget, Price & Item List"
+            title={
+              cabins.length === 0
+                ? "Pick a room to see price"
+                : `₹${bom.totalCost.toLocaleString("en-IN")} • Item List (${bom.items.length})`
+            }
+            className={`w-10 h-10 flex items-center justify-center rounded-xl transition relative ${
+              activeDrawer === "bom" || openMenu === "budget"
+                ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+                : "text-emerald-600 hover:bg-slate-100"
+            }`}
           >
-            <Layers className="w-4 h-4 text-indigo-400" />
-            <span>+ 2nd Floor</span>
+            <PiggyBank className="w-4 h-4" />
+            {bom.items.length > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-emerald-600 text-white text-[9px] font-bold flex items-center justify-center shadow-sm">
+                {bom.items.length}
+              </span>
+            )}
           </button>
-        )}
 
-        <div className="w-px h-6 bg-white/10 mx-0.5 shrink-0" />
+          <div className={flyoutClass("budget")}>
+            <div className="w-72 bg-white/95 backdrop-blur-xl border border-slate-200 rounded-2xl shadow-2xl p-3.5 text-slate-800 space-y-2.5">
+              {cabins.length === 0 ? (
+                <div className="space-y-2 text-center py-1">
+                  <div className="text-xs font-semibold text-slate-600">No room placed yet</div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPurposePicker(true);
+                      setOpenMenu(null);
+                    }}
+                    className="w-full px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold hover:bg-emerald-100 transition"
+                  >
+                    Pick a room to see price
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="border-b border-slate-200 pb-2">
+                    <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+                      True Landed Price (Incl. Tax + Transport)
+                    </div>
+                    <div className="flex items-baseline justify-between gap-2 mt-0.5">
+                      <span className="text-lg font-black font-mono tracking-tight text-emerald-600">
+                        ₹{bom.totalCost.toLocaleString("en-IN")}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveDrawer("bom");
+                          setOpenMenu(null);
+                        }}
+                        className="text-[11px] font-semibold text-cyan-700 hover:text-cyan-900 underline"
+                      >
+                        Item List ({bom.items.length})
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveDrawer("logistics");
+                        setOpenMenu(null);
+                      }}
+                      className="mt-1.5 inline-flex items-center space-x-1 text-[10px] px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 transition"
+                    >
+                      <span>
+                        {logistics.condition === "NEW"
+                          ? "Brand New"
+                          : logistics.condition === "REFURB_READY"
+                          ? "2nd Hand (-38%)"
+                          : "Used Shell (-55%)"}
+                      </span>
+                      <span>•</span>
+                      <span>
+                        {logistics.deliveryMode === "SELF_PICKUP"
+                          ? "Self-Pickup"
+                          : logistics.deliveryMode === "KNOCK_DOWN"
+                          ? "Flat-Pack"
+                          : logistics.placementLevel === "TERRACE"
+                          ? "Terrace"
+                          : logistics.placementLevel === "MID_FLOOR"
+                          ? "1st/2nd Flr"
+                          : "Ground"}
+                      </span>
+                      <span>•</span>
+                      <span>
+                        {logistics.deliveryMode === "SELF_PICKUP"
+                          ? "₹0 Delivery"
+                          : `₹${((bom.transportCost + bom.craneOrAssemblyCost) / 1000).toFixed(1)}k Delivery`}
+                      </span>
+                    </button>
+                  </div>
 
-        <button
-          onClick={onOpenEquipmentPicker}
-          className="flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-200 text-xs font-bold transition shadow-md shrink-0 active:scale-95"
+                  {/* Target Budget Bar */}
+                  <div>
+                    <div className="flex items-center justify-between text-[11px] mb-1">
+                      <span className="flex items-center space-x-1 text-slate-600 font-medium">
+                        <Target className="w-3 h-3 text-amber-600" />
+                        <span>My Budget</span>
+                      </span>
+                      {isEditingBudget ? (
+                        <form onSubmit={handleBudgetSubmit} className="flex items-center space-x-1">
+                          <input
+                            type="text"
+                            value={budgetInput}
+                            onChange={(e) => setBudgetInput(e.target.value)}
+                            className="w-20 px-1.5 py-0.5 text-[10px] bg-slate-50 border border-slate-300 rounded text-right font-mono text-slate-900"
+                            autoFocus
+                          />
+                          <button type="submit" className="text-[10px] text-emerald-700 font-bold">
+                            Save
+                          </button>
+                        </form>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setBudgetInput(String(targetBudget));
+                            setIsEditingBudget(true);
+                          }}
+                          className="font-mono text-slate-700 hover:text-emerald-700 transition underline decoration-dotted"
+                          title="Tap to change your budget"
+                        >
+                          ₹{(targetBudget / 100000).toFixed(1)}L
+                        </button>
+                      )}
+                    </div>
+                    <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden border border-slate-200">
+                      <div
+                        className={`h-full transition-all duration-500 rounded-full ${
+                          isOverBudget ? "bg-amber-500" : "bg-emerald-500"
+                        }`}
+                        style={{ width: `${Math.min(100, budgetPct)}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* 3 Comfort Gauges */}
+                  <div className="grid grid-cols-3 gap-1.5 pt-1 border-t border-slate-200">
+                    <div className="bg-slate-50 p-2 rounded-xl text-center border border-slate-200/80">
+                      <div className="flex items-center justify-center space-x-1 text-slate-600 mb-0.5">
+                        <Thermometer className="w-3 h-3 text-cyan-600" />
+                        <span className="text-[10px] font-semibold">Coolness</span>
+                      </div>
+                      <div className="text-xs font-black font-mono text-cyan-700">{scores.thermalComfort}%</div>
+                      <div className="w-full bg-slate-200 h-1 rounded-full mt-1 overflow-hidden">
+                        <div className="bg-cyan-500 h-full rounded-full" style={{ width: `${scores.thermalComfort}%` }} />
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-50 p-2 rounded-xl text-center border border-slate-200/80">
+                      <div className="flex items-center justify-center space-x-1 text-slate-600 mb-0.5">
+                        <Sun className="w-3 h-3 text-amber-500" />
+                        <span className="text-[10px] font-semibold">Sunlight</span>
+                      </div>
+                      <div className="text-xs font-black font-mono text-amber-700">{scores.naturalDaylight}%</div>
+                      <div className="w-full bg-slate-200 h-1 rounded-full mt-1 overflow-hidden">
+                        <div className="bg-amber-500 h-full rounded-full" style={{ width: `${scores.naturalDaylight}%` }} />
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-50 p-2 rounded-xl text-center border border-slate-200/80">
+                      <div className="flex items-center justify-center space-x-1 text-slate-600 mb-0.5">
+                        <Zap className="w-3 h-3 text-emerald-600" />
+                        <span className="text-[10px] font-semibold">Power Save</span>
+                      </div>
+                      <div className="text-xs font-black font-mono text-emerald-700">{scores.ecoSolar}%</div>
+                      <div className="w-full bg-slate-200 h-1 rounded-full mt-1 overflow-hidden">
+                        <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${scores.ecoSolar}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* 6. Save & Quotes */}
+        <div
+          className="relative"
+          onMouseEnter={() => setOpenMenu("save")}
+          onMouseLeave={() => setOpenMenu((m) => (m === "save" ? null : m))}
         >
-          <Wrench className="w-4 h-4 text-amber-400" />
-          <span>+ Furniture & AC</span>
-        </button>
+          <button
+            type="button"
+            onClick={onOpenSaveModal}
+            aria-label="Save & Get Quotes"
+            className="w-10 h-10 flex items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-white shadow-sm transition active:scale-95"
+          >
+            <Save className="w-4 h-4" />
+          </button>
 
-        <button
-          onClick={() => setActiveDrawer(activeDrawer === "logistics" ? null : "logistics")}
-          className={`flex items-center space-x-1.5 px-3.5 py-2 rounded-xl border text-xs font-bold transition shrink-0 active:scale-95 ${
-            activeDrawer === "logistics"
-              ? "bg-cyan-500/25 border-cyan-400 text-cyan-200"
-              : "bg-white/5 hover:bg-white/10 border-white/10 text-cyan-300"
-          }`}
-          title="2nd Hand option, Transport cost, Crane & Heat Roof"
+          <div className={flyoutClass("save")}>
+              <div className="w-48 bg-white/95 backdrop-blur-xl border border-slate-200 rounded-2xl shadow-2xl p-1.5 space-y-0.5 text-xs text-slate-700">
+                <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase">Export &amp; Pricing</div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onOpenSaveModal();
+                    setOpenMenu(null);
+                  }}
+                  className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl text-emerald-700 hover:bg-emerald-50 transition text-left font-semibold"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>Save &amp; Share</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveDrawer(activeDrawer === "quotes" ? null : "quotes");
+                    setOpenMenu(null);
+                  }}
+                  className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl hover:bg-slate-100 transition text-left font-medium"
+                >
+                  <Tag className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Get Quotes</span>
+                </button>
+              </div>
+          </div>
+        </div>
+
+        <div className="w-6 h-px bg-slate-200 my-0.5" />
+
+        {/* 6. Profile Picture Avatar */}
+        <div
+          className="relative"
+          onMouseEnter={() => setOpenMenu("profile")}
+          onMouseLeave={() => setOpenMenu((m) => (m === "profile" ? null : m))}
         >
-          <Truck className="w-4 h-4 text-cyan-400" />
-          <span>2nd Hand & Transport</span>
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={() => setOpenMenu((m) => (m === "profile" ? null : "profile"))}
+            aria-label="Account Profile"
+            className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-slate-100 transition"
+          >
+            {authUser?.image ? (
+              <img
+                src={authUser.image}
+                alt={authUser.name || "Profile"}
+                referrerPolicy="no-referrer"
+                className="w-7 h-7 rounded-full object-cover border border-emerald-400 shadow-sm"
+              />
+            ) : authUser ? (
+              <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-emerald-600 to-cyan-600 text-white text-[11px] font-black flex items-center justify-center shadow-sm">
+                {initials || "U"}
+              </div>
+            ) : (
+              <div className="w-7 h-7 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center">
+                <UserIcon className="w-4 h-4" />
+              </div>
+            )}
+          </button>
+
+          <div className={flyoutClass("profile", true)}>
+              <div className="w-56 bg-white/95 backdrop-blur-xl border border-slate-200 rounded-2xl shadow-2xl p-1.5 space-y-0.5 text-xs text-slate-700">
+                {authUser ? (
+                  <>
+                    <div className="px-3 py-2 flex items-center gap-2.5 border-b border-slate-200 mb-1">
+                      {authUser.image ? (
+                        <img
+                          src={authUser.image}
+                          alt={authUser.name || "Profile"}
+                          referrerPolicy="no-referrer"
+                          className="w-8 h-8 rounded-full object-cover border border-emerald-300 shrink-0"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-emerald-600 to-cyan-600 text-white text-xs font-black flex items-center justify-center shrink-0">
+                          {initials || "U"}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <div className="font-bold text-slate-900 truncate">{authUser.name || authUser.email}</div>
+                        <div className="text-[10px] font-mono text-emerald-700">{authUser.role}</div>
+                      </div>
+                    </div>
+                    <a
+                      href="/profile"
+                      onClick={() => setOpenMenu(null)}
+                      className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl text-emerald-700 hover:bg-emerald-50 transition font-semibold"
+                    >
+                      <UserIcon className="w-3.5 h-3.5" />
+                      <span>My Profile</span>
+                    </a>
+                    <a
+                      href="/vendor"
+                      onClick={() => setOpenMenu(null)}
+                      className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl hover:bg-slate-100 transition"
+                    >
+                      <Building2 className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Maker / Vendor Portal</span>
+                    </a>
+                    {authUser.role === "ADMIN" && (
+                      <a
+                        href="/admin"
+                        onClick={() => setOpenMenu(null)}
+                        className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl text-cyan-700 hover:bg-slate-100 transition"
+                      >
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                        <span>Admin Console</span>
+                      </a>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOpenMenu(null);
+                        signOut({ callbackUrl: "/" });
+                      }}
+                      className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl text-red-600 hover:bg-red-50 transition text-left"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>Sign Out</span>
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <a
+                      href="/profile"
+                      onClick={() => setOpenMenu(null)}
+                      className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl text-emerald-700 hover:bg-emerald-50 transition font-semibold"
+                    >
+                      <UserIcon className="w-3.5 h-3.5" />
+                      <span>My Profile</span>
+                    </a>
+                    <a
+                      href="/vendor"
+                      onClick={() => setOpenMenu(null)}
+                      className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl hover:bg-slate-100 transition"
+                    >
+                      <Building2 className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Maker / Vendor Portal</span>
+                    </a>
+                    <a
+                      href="/auth/signin"
+                      onClick={() => setOpenMenu(null)}
+                      className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl text-emerald-700 hover:bg-emerald-50 transition font-semibold"
+                    >
+                      <Globe className="w-3.5 h-3.5" />
+                      <span>Sign In / Register</span>
+                    </a>
+                  </>
+                )}
+              </div>
+          </div>
+        </div>
+      </aside>
     </>
   );
 };

@@ -283,3 +283,27 @@ model SeoPost {
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 }
+
+model SiteSeoConfig {
+  id                     String   @id @default("singleton")
+  siteUrl                String   @default("https://myprefabroom.com")
+  headerHtml             String   @default("")
+  bodyTopHtml            String   @default("")
+  footerHtml             String   @default("")
+  customGlobalSchemaJson String   @default("")
+  indexNowKey            String   @default("8c4f1d9b3a724e6c9a15d0b4f82e7a31")
+  googleServiceAcctJson  String   @default("")
+  llmsSummaryNote        String   @default("Interactive 3D modular prefab room configurator, real turnkey pricing engine, crane & flat-pack logistics calculator, and E-E-A-T buyer guides.")
+  updatedAt              DateTime @updatedAt
+}
+
+model SeoIndexingLog {
+  id         String   @id @default(cuid())
+  url        String
+  service    String   // GOOGLE_INDEXING | INDEXNOW
+  actionType String   @default("URL_UPDATED")
+  status     String   // SUCCESS | FAILED | SKIPPED
+  httpCode   Int?
+  response   String?
+  createdAt  DateTime @default(now())
+}

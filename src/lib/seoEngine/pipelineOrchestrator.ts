@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { GroundedCatalogSummary, loadGroundedCatalog } from "./catalogGrounder";
 import { generateWithBestLlm } from "./llmRouter";
+import { humanizeSectionsWithAi } from "./humanizerPass";
 import { buildSchemaJsonLd } from "./guideReader";
 import { countWords, scoreSeoPost, slugifySeo } from "./complianceScorer";
 import {
@@ -522,6 +523,13 @@ Write 450-650 words in clean Markdown (H3s + concrete comparison bullets/tables 
     });
     appendixNum++;
   }
+
+  const humanPass = await humanizeSectionsWithAi(sections, {
+    keyword,
+    llmConfig: params.llmConfig,
+  });
+  sections.splice(0, sections.length, ...humanPass.sections);
+  enginesUsed.add(`editorial:${humanPass.engineUsed}`);
 
   const ymylDisclaimer =
     "YMYL Engineering, Zoning & Financial Disclaimer: Costs (USD/GBP/AUD/INR), thermal metrics, municipal permit summaries, and loan estimates on MyPrefabRoom are informational benchmarks audited against partner rate cards and public codes. Rooftop load engineering, concrete slab piers, utility trenching, municipal approvals, and financing commitments must be reviewed and signed off by licensed local civil engineers, electricians, and qualified financial/tax advisors prior to construction.";

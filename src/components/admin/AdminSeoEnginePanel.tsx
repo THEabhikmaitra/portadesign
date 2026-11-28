@@ -31,6 +31,10 @@ export const AdminSeoEnginePanel: React.FC<{
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [pushing, setPushing] = useState(false);
+  const [humanizing, setHumanizing] = useState(false);
+  const [auditingQuality, setAuditingQuality] = useState(false);
+  const [liveQualityAudit, setLiveQualityAudit] = useState<{ postId: string; report: any } | null>(null);
+  const [showAllAuditChecks, setShowAllAuditChecks] = useState(false);
 
   // LLM + Generation Config (Local PC controls)
   const [provider, setProvider] = useState<LlmProviderType>("auto");
@@ -67,6 +71,7 @@ export const AdminSeoEnginePanel: React.FC<{
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   const [webhookUrl, setWebhookUrl] = useState("");
   const [gitPushEnabled, setGitPushEnabled] = useState(false);
+  const [pingIndexersOnPush, setPingIndexersOnPush] = useState(true);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -262,6 +267,69 @@ export const AdminSeoEnginePanel: React.FC<{
     }
   };
 
+  const handleAuditQualityNow = async () => {
+    if (!selectedPostId) return;
+    setAuditingQuality(true);
+    try {
+      const res = await fetch("/api/admin/seo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "AUDIT_QUALITY",
+          postId: selectedPostId,
+          title: editTitle,
+          metaTitle: editMetaTitle,
+          metaDesc: editMetaDesc,
+          tldrAnswer: editTldr,
+          sections: editSections,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Audit failed");
+      setLiveQualityAudit({ postId: selectedPostId, report: data.qualityAudit });
+      onNotify(
+        `Quality Audit: Grade ${data.qualityAudit.grade} (${data.qualityAudit.pct}% • ${data.qualityAudit.totalScore}/${data.qualityAudit.maxScore})`
+      );
+    } catch (err: any) {
+      onNotify(`Quality Audit Error: ${err.message}`);
+    } finally {
+      setAuditingQuality(false);
+    }
+  };
+
+  const handleAiHumanizeAll = async () => {
+    if (!selectedPostId) return;
+    setHumanizing(true);
+    try {
+      const res = await fetch("/api/admin/seo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "AI_HUMANIZE_POST",
+          postId: selectedPostId,
+          title: editTitle,
+          metaTitle: editMetaTitle,
+          metaDesc: editMetaDesc,
+          tldrAnswer: editTldr,
+          sections: editSections,
+          llmConfig: llmConfigPayload,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "AI Humanize failed");
+      setPosts((prev) => prev.map((p) => (p.id === selectedPostId ? data.post : p)));
+      selectPostForHitl(data.post);
+      setLiveQualityAudit({ postId: selectedPostId, report: data.post.qualityAudit });
+      onNotify(
+        `AI Editorial Pass (${data.engineUsed}): Grade ${data.post.qualityAudit.grade} (${data.post.qualityAudit.pct}%)`
+      );
+    } catch (err: any) {
+      onNotify(`AI Humanize Error: ${err.message}`);
+    } finally {
+      setHumanizing(false);
+    }
+  };
+
   const handlePushToLive = async () => {
     if (!selectedPostId) return;
     setPushing(true);
@@ -276,6 +344,7 @@ export const AdminSeoEnginePanel: React.FC<{
           postId: selectedPostId,
           webhookUrl: webhookUrl.trim() || undefined,
           gitPush: gitPushEnabled,
+          pingIndexers: pingIndexersOnPush,
         }),
       });
       const data = await res.json();
@@ -603,6 +672,104 @@ export const AdminSeoEnginePanel: React.FC<{
                 </div>
               )}
 
+              {/* Real-Time Content Quality & AI-Tell Audit */}
+              {(() => {
+                const audit =
+                  liveQualityAudit?.postId === selectedPostId
+                    ? liveQualityAudit.report
+                    : selectedPost.qualityAudit;
+                if (!audit) return null;
+                return (
+                  <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center space-x-2">
+                        <span
+                          className={`px-2 py-0.5 rounded-lg text-xs font-black font-mono ${
+                            audit.grade === "A"
+                              ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                              : audit.grade === "B"
+                              ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40"
+                              : "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                          }`}
+                        >
+                          GRADE {audit.grade} • {audit.pct}%
+                        </span>
+                        <span className="text-[11px] font-bold text-slate-200">
+                          Real-Time Quality &amp; AI-Tell Audit ({audit.totalScore}/{audit.maxScore})
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <button
+                          type="button"
+                          onClick={handleAuditQualityNow}
+                          disabled={auditingQuality || humanizing}
+                          className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-bold disabled:opacity-50"
+                        >
+                          {auditingQuality ? "Checking..." : "Re-Check Quality"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleAiHumanizeAll}
+                          disabled={humanizing || auditingQuality}
+                          className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950 text-[11px] font-extrabold disabled:opacity-50"
+                        >
+                          {humanizing ? "AI Polishing..." : "AI Humanize & Strip Tells"}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-6 gap-1.5">
+                      {(audit.categories || []).map((cat: any) => (
+                        <div key={cat.category} className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-center">
+                          <div className="text-[9px] text-slate-400 uppercase truncate">{cat.category}</div>
+                          <div
+                            className={`text-xs font-black font-mono ${
+                              cat.pct >= 90 ? "text-emerald-400" : cat.pct >= 75 ? "text-cyan-300" : "text-amber-300"
+                            }`}
+                          >
+                            {cat.pct}%
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {audit.topFixes?.length > 0 && (
+                      <div className="space-y-1">
+                        <div className="text-[10px] font-bold text-amber-300 uppercase">Priority Fixes ({audit.topFixes.length})</div>
+                        {audit.topFixes.slice(0, 4).map((fix: any, idx: number) => (
+                          <div key={idx} className="text-[11px] text-slate-300 flex items-center justify-between gap-2">
+                            <span className="truncate">• [{fix.category}] {fix.check}</span>
+                            <span className="text-amber-300 font-mono text-[10px] shrink-0">{fix.detail}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setShowAllAuditChecks((v) => !v)}
+                        className="text-[10px] font-bold text-cyan-400 hover:underline"
+                      >
+                        {showAllAuditChecks ? "Hide full checklist" : `Show all ${audit.checks?.length || 0} quality checks`}
+                      </button>
+                      {showAllAuditChecks && (
+                        <div className="mt-2 max-h-52 overflow-y-auto space-y-1 pr-1">
+                          {(audit.checks || []).map((c: any, idx: number) => (
+                            <div key={idx} className="text-[10px] flex items-center justify-between gap-2 py-0.5 border-b border-slate-900">
+                              <span className={c.status === "PASS" ? "text-emerald-400" : c.status === "WARN" ? "text-amber-300" : "text-red-400"}>
+                                {c.status} • [{c.category}] {c.check}
+                              </span>
+                              <span className="text-slate-400 font-mono truncate max-w-[45%]">{c.detail}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Metadata & TL;DR Editor */}
               <div className="space-y-2">
                 <input
@@ -792,7 +959,7 @@ export const AdminSeoEnginePanel: React.FC<{
                     className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500"
                   />
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-center">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center">
                   <input
                     type="text"
                     placeholder="Optional Remote Webhook URL (https://myprefabroom.com/api/guides/sync)"
@@ -807,7 +974,16 @@ export const AdminSeoEnginePanel: React.FC<{
                       onChange={(e) => setGitPushEnabled(e.target.checked)}
                       className="accent-emerald-500"
                     />
-                    <span>Also commit &amp; push bundle to git origin/main</span>
+                    <span>Commit &amp; push to git</span>
+                  </label>
+                  <label className="flex items-center space-x-2 text-emerald-300 px-2">
+                    <input
+                      type="checkbox"
+                      checked={pingIndexersOnPush}
+                      onChange={(e) => setPingIndexersOnPush(e.target.checked)}
+                      className="accent-emerald-500"
+                    />
+                    <span>Ping IndexNow + Google Indexing</span>
                   </label>
                 </div>
 

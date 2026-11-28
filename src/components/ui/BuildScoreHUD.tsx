@@ -24,7 +24,7 @@ export const BuildScoreHUD: React.FC = () => {
   // Friendly empty state when no room is placed yet
   if (cabins.length === 0) {
     return (
-      <div className="fixed top-16 right-3 z-20 pointer-events-auto">
+      <div className="fixed top-3 right-3 z-20 pointer-events-auto">
         <button
           onClick={() => setShowPurposePicker(true)}
           className="px-4 py-2 bg-slate-950/80 backdrop-blur-xl border border-emerald-500/30 rounded-2xl shadow-xl text-xs font-semibold text-emerald-300 hover:bg-slate-900 transition"
@@ -48,7 +48,7 @@ export const BuildScoreHUD: React.FC = () => {
   };
 
   return (
-    <div className="fixed top-16 right-3 z-20 flex flex-col items-end pointer-events-auto animate-in fade-in duration-300">
+    <div className="fixed top-3 right-3 z-20 flex flex-col items-end pointer-events-auto animate-in fade-in duration-300">
       <div className="w-72 bg-slate-950/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-3.5 text-white transition-all duration-300">
         {/* Header: Price Ticker + Item List */}
         <div className="flex items-center justify-between border-b border-white/10 pb-2">

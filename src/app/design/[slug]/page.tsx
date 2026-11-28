@@ -4,6 +4,8 @@ import Link from "next/link";
 import dynamicImport from "next/dynamic";
 import { prisma } from "@/lib/prisma";
 import { RemixButton } from "./RemixButton";
+import { SiteHeader } from "@/components/ui/SiteHeader";
+import { SiteFooter } from "@/components/ui/SiteFooter";
 
 export const dynamic = "force-dynamic";
 
@@ -118,30 +120,17 @@ export default async function PublicDesignPage({ params }: Props) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      {/* Top Navbar */}
-      <header className="border-b border-slate-800 bg-slate-900/70 backdrop-blur-md sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <Link
-            href="/"
-            className="flex items-center space-x-2 text-xs font-semibold text-slate-300 hover:text-white transition"
-          >
-            <ArrowLeft className="w-4 h-4 text-emerald-400" />
-            <span>Back to 3D Studio</span>
-          </Link>
-
-          <div className="flex items-center space-x-3">
-            <span className="hidden sm:inline-flex items-center space-x-1 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs">
-              <CheckCircle className="w-3.5 h-3.5" />
-              <span>Public Verified Specification</span>
-            </span>
-
-            <RemixButton originalSlug={design.slug} originalTitle={design.title} />
-          </div>
-        </div>
-      </header>
+      <SiteHeader />
 
       {/* Hero & Interactive 3D Canvas Box */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs">
+            <CheckCircle className="w-3.5 h-3.5" />
+            <span>Public Verified Specification</span>
+          </span>
+          <RemixButton originalSlug={design.slug} originalTitle={design.title} />
+        </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main 3D Interactive Viewport */}
           <div className="lg:col-span-2 space-y-4">
@@ -297,6 +286,7 @@ export default async function PublicDesignPage({ params }: Props) {
           </div>
         </div>
       </main>
+      <SiteFooter />
     </div>
   );
 }

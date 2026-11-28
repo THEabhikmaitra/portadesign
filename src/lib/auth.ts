@@ -1,7 +1,9 @@
 import { NextAuthOptions } from "next-auth";
-import CredentialsProvider from "next-auth/providers/credentials";
-import bcrypt from "bcryptjs";
+import GoogleProvider from "next-auth/providers/google";
 import { prisma } from "@/lib/prisma";
+
+const googleClientId = process.env.GOOGLE_CLIENT_ID?.trim() || "";
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim() || "";
 
 export const authOptions: NextAuthOptions = {
   session: {
@@ -9,61 +11,57 @@ export const authOptions: NextAuthOptions = {
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   providers: [
-    CredentialsProvider({
-      name: "Credentials",
-      credentials: {
-        email: { label: "Email", type: "email", placeholder: "you@example.com" },
-        password: { label: "Password", type: "password" },
-      },
-      async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          throw new Error("Missing email or password");
-        }
-
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email.toLowerCase().trim() },
-          include: { vendorProfile: true },
-        });
-
-        if (!user || !user.password) {
-          throw new Error("No user found with this email");
-        }
-
-        if (user.status !== "ACTIVE") {
-          throw new Error(
-            user.banReason ? `Account ${user.status.toLowerCase()}: ${user.banReason}` : `Account is ${user.status.toLowerCase()}`
-          );
-        }
-
-        const isValid = await bcrypt.compare(credentials.password, user.password);
-        if (!isValid) {
-          throw new Error("Invalid password");
-        }
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          xp: user.xp,
-          vendorId: user.vendorProfile?.id,
-        };
-      },
+    GoogleProvider({
+      clientId: googleClientId,
+      clientSecret: googleClientSecret,
     }),
   ],
   callbacks: {
+    async signIn({ user, account }) {
+      if (account?.provider !== "google") return false;
+
+      const email = user.email?.toLowerCase().trim();
+      if (!email) return false;
+
+      let dbUser = await prisma.user.findUnique({
+        where: { email },
+        include: { vendorProfile: true },
+      });
+
+      if (!dbUser) {
+        const adminCount = await prisma.user.count({ where: { role: "ADMIN" } });
+        dbUser = await prisma.user.create({
+          data: {
+            email,
+            name: user.name?.trim() || email.split("@")[0],
+            password: "",
+            role: adminCount === 0 ? "ADMIN" : "BUYER",
+            status: "ACTIVE",
+          },
+          include: { vendorProfile: true },
+        });
+      } else if (dbUser.status !== "ACTIVE") {
+        return false;
+      }
+
+      user.id = dbUser.id;
+      (user as any).role = dbUser.role;
+      (user as any).xp = dbUser.xp;
+      (user as any).vendorId = dbUser.vendorProfile?.id;
+      return true;
+    },
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
         token.role = (user as any).role;
         token.xp = (user as any).xp;
         token.vendorId = (user as any).vendorId;
+        if (user.image) token.picture = user.image;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user && token.id) {
-        // Re-sync role, status, and vendorId dynamically on session check
         const fresh = await prisma.user.findUnique({
           where: { id: String(token.id) },
           select: {
@@ -82,6 +80,11 @@ export const authOptions: NextAuthOptions = {
           (session.user as any).status = fresh.status;
           (session.user as any).xp = fresh.xp;
           (session.user as any).name = fresh.name;
+          (session.user as any).email = fresh.email;
+          (session.user as any).image =
+            (typeof token.picture === "string" && token.picture) ||
+            session.user.image ||
+            null;
           (session.user as any).vendorId = fresh.vendorProfile?.id;
           (session.user as any).vendorApprovalStatus = fresh.vendorProfile?.approvalStatus;
         }
@@ -91,6 +94,7 @@ export const authOptions: NextAuthOptions = {
   },
   pages: {
     signIn: "/auth/signin",
+    error: "/auth/signin",
   },
   secret: process.env.NEXTAUTH_SECRET || "porta-design-secret-key-gamified-3d-2026-supersecure",
 };

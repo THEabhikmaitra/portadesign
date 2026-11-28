@@ -23,6 +23,7 @@ import {
   BarChart3,
   MessageSquare,
   FileText,
+  Globe as TechSeoGlobeIcon,
 } from "lucide-react";
 import {
   AdminElementsPanel,
@@ -30,8 +31,9 @@ import {
   AdminPresetsAndRatesPanel,
 } from "@/components/admin/AdminCatalogPanels";
 import { AdminSeoEnginePanel } from "@/components/admin/AdminSeoEnginePanel";
+import { AdminTechSeoPanel } from "@/components/admin/AdminTechSeoPanel";
 
-type AdminTab = "overview" | "vendors" | "ads" | "users" | "elements" | "attributes" | "presets" | "seo";
+type AdminTab = "overview" | "vendors" | "ads" | "users" | "elements" | "attributes" | "presets" | "seo" | "tech_seo";
 
 export default function AdminPortalPage() {
   const [activeTab, setActiveTab] = useState<AdminTab>("overview");
@@ -224,6 +226,7 @@ export default function AdminPortalPage() {
               ["attributes", `Attributes + Shaders (${attributes.length})`, Layers],
               ["presets", "Presets, Missions & Rates", Sliders],
               ["seo", "SEO Content Engine (5k+ HITL)", FileText],
+              ["tech_seo", "Tech SEO, Scripts & Indexing", TechSeoGlobeIcon],
             ] as const
           ).map(([id, label, Icon]) => (
             <button
@@ -732,6 +735,9 @@ export default function AdminPortalPage() {
 
         {/* TAB 8: LOCAL 5,000+ WORD SEO ENGINE + HITL + PUSH LIVE */}
         {activeTab === "seo" && <AdminSeoEnginePanel onNotify={setStatusMsg} />}
+
+        {/* TAB 9: TECH SEO, CUSTOM SCRIPTS, AUDIT & FAST INDEXING */}
+        {activeTab === "tech_seo" && <AdminTechSeoPanel onNotify={setStatusMsg} />}
       </main>
     </div>
   );

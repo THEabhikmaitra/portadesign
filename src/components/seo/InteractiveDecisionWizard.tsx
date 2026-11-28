@@ -58,7 +58,7 @@ export const InteractiveDecisionWizard: React.FC = () => {
   return (
     <section
       id="decision-wizard"
-      className="my-8 p-5 sm:p-6 rounded-3xl bg-gradient-to-br from-slate-900 via-slate-900 to-cyan-950/30 border border-cyan-500/35 space-y-5 shadow-xl"
+      className="my-8 p-5 sm:p-6 rounded-3xl bg-slate-900 border border-cyan-500/35 space-y-5 shadow-sm"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center space-x-2">
@@ -91,7 +91,7 @@ export const InteractiveDecisionWizard: React.FC = () => {
                 className={`p-2.5 rounded-xl border text-left font-semibold transition ${
                   goal === id
                     ? "bg-emerald-500/20 border-emerald-400 text-white"
-                    : "bg-slate-950 border-slate-800 text-slate-400 hover:text-white"
+                    : "bg-slate-950 border-slate-700 text-slate-200 hover:border-emerald-500/60 hover:text-white"
                 }`}
               >
                 {label}
@@ -118,7 +118,7 @@ export const InteractiveDecisionWizard: React.FC = () => {
                 className={`p-2.5 rounded-xl border text-left font-semibold transition ${
                   constraint === id
                     ? "bg-cyan-500/20 border-cyan-400 text-white"
-                    : "bg-slate-950 border-slate-800 text-slate-400 hover:text-white"
+                    : "bg-slate-950 border-slate-700 text-slate-200 hover:border-cyan-400/60 hover:text-white"
                 }`}
               >
                 {label}

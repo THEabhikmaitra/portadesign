@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect } from "react";
+import { useSession } from "next-auth/react";
 
 interface AdSenseSlotProps {
   slotId?: string;
@@ -9,6 +10,8 @@ interface AdSenseSlotProps {
 
 export const AdSenseSlot: React.FC<AdSenseSlotProps> = ({ slotId = "auto", label = "Sponsored" }) => {
   const client = process.env.NEXT_PUBLIC_ADSENSE_CLIENT;
+  const { data: session } = useSession();
+  const isAdmin = (session?.user as { role?: string } | undefined)?.role === "ADMIN";
 
   useEffect(() => {
     if (!client) return;
@@ -20,18 +23,17 @@ export const AdSenseSlot: React.FC<AdSenseSlotProps> = ({ slotId = "auto", label
   }, [client]);
 
   if (!client) {
-    // Clean zero-clutter placeholder in production until NEXT_PUBLIC_ADSENSE_CLIENT is configured
-    if (process.env.NODE_ENV === "production") return null;
+    if (process.env.NODE_ENV === "production" || !isAdmin) return null;
     return (
-      <div className="my-6 py-3 px-4 rounded-xl border border-dashed border-slate-800 bg-slate-900/40 text-center text-[10px] text-slate-500 font-mono">
+      <div className="my-6 py-3 px-4 rounded-xl border border-dashed border-slate-700 bg-slate-900/60 text-center text-[10px] text-slate-400 font-mono">
         AdSense Responsive In-Article Slot ({label} • set NEXT_PUBLIC_ADSENSE_CLIENT in env when approved)
       </div>
     );
   }
 
   return (
-    <div className="my-6 overflow-hidden rounded-xl border border-slate-800/60 bg-slate-900/30 p-2">
-      <div className="text-[9px] uppercase tracking-wider text-slate-500 text-center mb-1">{label}</div>
+    <div className="my-6 overflow-hidden rounded-xl border border-slate-700/70 bg-slate-900/50 p-2">
+      <div className="text-[9px] uppercase tracking-wider text-slate-400 text-center mb-1">{label}</div>
       <ins
         className="adsbygoogle block"
         style={{ display: "block", textAlign: "center" }}

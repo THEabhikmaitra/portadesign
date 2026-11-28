@@ -1,0 +1,9 @@
+{
+  "siteUrl": "https://myprefabroom.com",
+  "headerHtml": "<script async src=\"https://www.googletagmanager.com/gtm.js?id=GTM-MZ8BTD48\"></script>\n<script>\n  window.dataLayer = window.dataLayer || [];\n  function gtag(){dataLayer.push(arguments);}\n  gtag('js', new Date());\n</script>",
+  "bodyTopHtml": "",
+  "footerHtml": "",
+  "customGlobalSchemaJson": "",
+  "indexNowKey": "8c4f1d9b3a724e6c9a15d0b4f82e7a31",
+  "llmsSummaryNote": "Interactive 3D modular prefab room configurator, real turnkey pricing engine, crane & flat-pack logistics calculator, and E-E-A-T buyer guides."
+}

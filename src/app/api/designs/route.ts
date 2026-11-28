@@ -11,8 +11,21 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
+    const idParam = searchParams.get("id");
     const isPublicOnly = searchParams.get("public") === "true";
+    const queryText = (searchParams.get("q") || "").trim().toLowerCase();
     const session = await getServerSession(authOptions);
+
+    if (idParam) {
+      const single = await prisma.design.findFirst({
+        where: { OR: [{ id: idParam }, { slug: idParam }] },
+        include: {
+          versions: { orderBy: { versionNumber: "desc" }, take: 1 },
+          user: { select: { id: true, name: true, role: true } },
+        },
+      });
+      return NextResponse.json({ designs: single ? [single] : [], design: single });
+    }
 
     const where: any = {};
     if (isPublicOnly) {
@@ -23,7 +36,7 @@ export async function GET(req: NextRequest) {
       where.isPublic = true;
     }
 
-    const designs = await prisma.design.findMany({
+    let designs = await prisma.design.findMany({
       where,
       include: {
         versions: {
@@ -35,7 +48,17 @@ export async function GET(req: NextRequest) {
         },
       },
       orderBy: { updatedAt: "desc" },
+      take: isPublicOnly ? 60 : undefined,
     });
+
+    if (queryText) {
+      designs = designs.filter(
+        (d) =>
+          d.title.toLowerCase().includes(queryText) ||
+          (d.description || "").toLowerCase().includes(queryText) ||
+          (d.user?.name || "").toLowerCase().includes(queryText)
+      );
+    }
 
     return NextResponse.json({ designs });
   } catch (error: any) {

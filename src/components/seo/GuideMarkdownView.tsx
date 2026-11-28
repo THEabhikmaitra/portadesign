@@ -1,5 +1,6 @@
 import React from "react";
 import Link from "next/link";
+import { SortableSearchableTable } from "./SortableSearchableTable";
 
 function renderInlineFormatting(text: string): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
@@ -51,7 +52,7 @@ export const GuideMarkdownView: React.FC<{ markdown: string }> = ({ markdown }) 
     const raw = lines[i];
     const line = raw.trim();
 
-    if (!line) {
+    if (!line || /^(-{3,}|\*{3,}|_{3,})$/.test(line)) {
       i++;
       continue;
     }
@@ -66,30 +67,11 @@ export const GuideMarkdownView: React.FC<{ markdown: string }> = ({ markdown }) 
         i++;
       }
       blocks.push(
-        <div key={`tbl-${keyCounter++}`} className="my-5 overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/70">
-          <table className="w-full text-left border-collapse text-xs sm:text-sm">
-            <thead className="bg-slate-800/80 text-slate-200">
-              <tr>
-                {headerCells.map((h, idx) => (
-                  <th key={idx} className="px-4 py-3 font-bold border-b border-slate-700 whitespace-nowrap">
-                    {renderInlineFormatting(h)}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/80 text-slate-300">
-              {rows.map((r, rIdx) => (
-                <tr key={rIdx} className="hover:bg-slate-800/30">
-                  {headerCells.map((_, cIdx) => (
-                    <td key={cIdx} className="px-4 py-2.5 align-top">
-                      {renderInlineFormatting(r[cIdx] || "")}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <SortableSearchableTable
+          key={`tbl-${keyCounter++}`}
+          headers={headerCells}
+          rows={rows}
+        />
       );
       continue;
     }
@@ -125,7 +107,7 @@ export const GuideMarkdownView: React.FC<{ markdown: string }> = ({ markdown }) 
       blocks.push(
         <blockquote
           key={`bq-${keyCounter++}`}
-          className="my-4 p-4 rounded-2xl border-l-4 border-emerald-400 bg-emerald-500/10 text-slate-200 text-sm leading-relaxed"
+          className="my-4 p-4 rounded-2xl border-l-4 border-emerald-500 bg-emerald-950/40 text-slate-200 text-sm leading-relaxed"
         >
           {renderInlineFormatting(quoteLines.join(" "))}
         </blockquote>
@@ -145,7 +127,7 @@ export const GuideMarkdownView: React.FC<{ markdown: string }> = ({ markdown }) 
       blocks.push(
         <ListTag
           key={`list-${keyCounter++}`}
-          className={`my-3 pl-5 space-y-2 text-slate-300 text-sm sm:text-base leading-relaxed ${
+          className={`my-3 pl-5 space-y-2 text-slate-200 text-sm sm:text-base leading-relaxed ${
             ordered ? "list-decimal" : "list-disc"
           }`}
         >
@@ -173,7 +155,7 @@ export const GuideMarkdownView: React.FC<{ markdown: string }> = ({ markdown }) 
 
     if (paraLines.length > 0) {
       blocks.push(
-        <p key={`p-${keyCounter++}`} className="my-3.5 text-slate-300 text-sm sm:text-base leading-7">
+        <p key={`p-${keyCounter++}`} className="my-3.5 text-slate-200 text-sm sm:text-base leading-7">
           {renderInlineFormatting(paraLines.join(" "))}
         </p>
       );
