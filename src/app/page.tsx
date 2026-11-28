@@ -84,7 +84,7 @@ export default function StudioPage() {
           <div className="flex items-center space-x-1">
             <button
               type="button"
-              onClick={() => window.dispatchEvent(new CustomEvent("portadesign:nudge-look", { detail: { dYaw: 0.7 } }))}
+              onClick={() => window.dispatchEvent(new CustomEvent("myprefabroom:nudge-look", { detail: { dYaw: 0.7 } }))}
               className="px-2 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold transition"
               title="Turn Left (Q)"
             >
@@ -92,7 +92,7 @@ export default function StudioPage() {
             </button>
             <button
               type="button"
-              onClick={() => window.dispatchEvent(new CustomEvent("portadesign:nudge-look", { detail: { dYaw: -0.7 } }))}
+              onClick={() => window.dispatchEvent(new CustomEvent("myprefabroom:nudge-look", { detail: { dYaw: -0.7 } }))}
               className="px-2 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold transition"
               title="Turn Right (E)"
             >
@@ -100,7 +100,7 @@ export default function StudioPage() {
             </button>
             <button
               type="button"
-              onClick={() => window.dispatchEvent(new CustomEvent("portadesign:nudge-look", { detail: { reset: true } }))}
+              onClick={() => window.dispatchEvent(new CustomEvent("myprefabroom:nudge-look", { detail: { reset: true } }))}
               className="px-2 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-semibold transition"
               title="Reset view center"
             >

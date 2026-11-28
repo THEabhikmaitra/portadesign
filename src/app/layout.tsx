@@ -2,9 +2,17 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "PORTADESIGN 3D - Gamified Modular Portacabin Configurator & Marketplace",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://myprefabroom.com"),
+  title: {
+    default: "MyPrefabRoom — 3D Prefab Room Designer, Cost Calculator & Buyer Guides",
+    template: "%s | MyPrefabRoom",
+  },
   description:
-    "100% Offline-Capable Photorealistic 3D Portacabin & Prefab Modular Configurator, Multi-Vendor Live Quotes, and AI-Assisted Catalog Platform.",
+    "Design your prefab room, backyard office pod, ADU, or terrace studio in interactive 3D. Compare local manufacturer quotes, crane & freight costs, permits, and E-E-A-T cost guides.",
+  openGraph: {
+    siteName: "MyPrefabRoom",
+    type: "website",
+  },
 };
 
 export default function RootLayout({

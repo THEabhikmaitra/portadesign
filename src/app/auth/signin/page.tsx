@@ -119,7 +119,7 @@ export default function SignInPage() {
             <ArrowLeft className="w-3.5 h-3.5 text-emerald-400" />
             <span>Back to 3D Studio</span>
           </Link>
-          <h1 className="text-xl font-bold text-white tracking-tight">PORTADESIGN Account</h1>
+          <h1 className="text-xl font-bold text-white tracking-tight">MyPrefabRoom Account</h1>
           <p className="text-xs text-slate-400 mt-1">
             Real authentication for Buyers, Verified Makers & Platform Admin
           </p>

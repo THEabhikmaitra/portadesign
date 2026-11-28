@@ -201,7 +201,7 @@ export const CameraController: React.FC<CameraControllerProps> = ({ mode }) => {
     window.addEventListener("pointercancel", handlePointerUp);
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
-    window.addEventListener("portadesign:nudge-look", handleLookNudge);
+    window.addEventListener("myprefabroom:nudge-look", handleLookNudge);
 
     return () => {
       dom.style.cursor = "auto";
@@ -214,7 +214,7 @@ export const CameraController: React.FC<CameraControllerProps> = ({ mode }) => {
       window.removeEventListener("pointercancel", handlePointerUp);
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
-      window.removeEventListener("portadesign:nudge-look", handleLookNudge);
+      window.removeEventListener("myprefabroom:nudge-look", handleLookNudge);
     };
   }, [mode, camera, gl]);
 

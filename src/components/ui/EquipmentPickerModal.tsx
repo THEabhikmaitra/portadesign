@@ -62,10 +62,7 @@ export const EquipmentPickerModal: React.FC<EquipmentPickerModalProps> = ({
         <div className="p-4 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           {items.length === 0 ? (
             <div className="col-span-2 p-6 rounded-2xl border border-white/10 bg-white/5 text-center text-xs text-slate-300 space-y-2">
-              <p>No active modules or equipment in Catalog Admin yet.</p>
-              <Link href="/admin" className="text-cyan-400 underline font-semibold">
-                Add or AI-generate modules in /admin →
-              </Link>
+              <p>Loading furniture & utilities catalog...</p>
             </div>
           ) : (
             items.map((el) => {

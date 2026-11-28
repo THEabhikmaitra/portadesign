@@ -676,8 +676,8 @@ export const LiveBrandQuoteDrawer: React.FC = () => {
             ) : sortedQuotes.length === 0 ? (
               <div className="p-6 rounded-2xl border border-slate-800 bg-slate-950/60 text-center space-y-3 text-xs">
                 <p className="font-semibold text-white">No approved manufacturers onboarded yet</p>
-                <p className="text-slate-400">
-                  Fabricators can register via Partner Signup and be approved in Admin Console.
+                <p className="text-xs text-slate-400 max-w-xs mx-auto">
+                  Fabricators can apply via Partner Signup to appear in live local price comparisons.
                 </p>
                 <div className="flex justify-center gap-2">
                   <Link
@@ -685,12 +685,6 @@ export const LiveBrandQuoteDrawer: React.FC = () => {
                     className="px-3.5 py-2 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-300 font-semibold"
                   >
                     Register as Maker
-                  </Link>
-                  <Link
-                    href="/admin"
-                    className="px-3.5 py-2 rounded-xl bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-semibold"
-                  >
-                    Open Admin
                   </Link>
                 </div>
               </div>

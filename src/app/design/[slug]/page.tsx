@@ -34,7 +34,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   });
 
   if (!design) {
-    return { title: "Design Not Found - PORTADESIGN 3D" };
+    return { title: "Design Not Found - MyPrefabRoom 3D" };
   }
 
   return {
@@ -104,7 +104,7 @@ export default async function PublicDesignPage({ params }: Props) {
       availability: "https://schema.org/InStock",
       seller: {
         "@type": "Organization",
-        name: "Verified PORTADESIGN Modular Fabricators",
+        name: "Verified MyPrefabRoom Modular Fabricators",
       },
     },
     category: "Modular Portacabin / Prefab Architecture",

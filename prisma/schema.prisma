@@ -227,3 +227,59 @@ model QuoteRequest {
   buyer  User          @relation("BuyerQuotes", fields: [buyerId], references: [id], onDelete: Cascade)
   vendor VendorProfile @relation("VendorQuotes", fields: [vendorId], references: [id], onDelete: Cascade)
 }
+
+model SeoTopicQueue {
+  id               String   @id @default(cuid())
+  keyword          String
+  slug             String   @unique
+  targetGeo        String   @default("GLOBAL") // GLOBAL, US, UK, AU, IN
+  intent           String   @default("COST")   // COST, PERMIT, FINANCE, GUIDE, COMPARISON
+  clusterRole      String   @default("PILLAR") // PILLAR, SPOKE_COST, SPOKE_VS, SPOKE_LOCAL, SPOKE_GUIDE
+  parentPillarSlug String?
+  publishTier      Int      @default(1)        // 1=Essential, 2=Authority Depth, 3=GEO Differentiator
+  priority         Int      @default(50)
+  status           String   @default("QUEUED") // QUEUED, GENERATING, DONE, FAILED
+  notes            String?
+  postId           String?
+  errorMsg         String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model SeoPost {
+  id                    String    @id @default(cuid())
+  slug                  String    @unique
+  title                 String
+  metaTitle             String
+  metaDesc              String
+  targetGeo             String    @default("GLOBAL")
+  keyword               String
+  intent                String    @default("COST")
+  clusterRole           String    @default("PILLAR")
+  parentPillarSlug      String?
+  status                String    @default("HITL_REVIEW") // DRAFT, HITL_REVIEW, APPROVED, PUBLISHED
+  tldrAnswer            String
+  sectionsJson          String    @default("[]")
+  contentMarkdown       String
+  wordCount             Int       @default(0)
+  readingMinutes        Int       @default(25)
+  faqJson               String    @default("[]")
+  keyStatsJson          String    @default("[]")
+  citationsJson         String    @default("[]")
+  vendorSnapshotJson    String    @default("[]")
+  guideImagesJson       String    @default("[]")
+  ymylDisclaimer        String
+  sponsorshipDisclosure String    @default("Evaluation methodology scores verified partners strictly on structural specs, warranty, crane/flat-pack capability, and pricing transparency. Sponsored bids are flagged separately and do not override verified capability rankings.")
+  priceVerifiedDate     String?
+  authorName            String
+  authorRole            String
+  reviewerName          String?
+  reviewerCreds         String?
+  reviewedAt            DateTime?
+  scoreJson             String    @default("{}")
+  linkedPresetCode      String?
+  pushedLiveAt          DateTime?
+  pushTarget            String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+}

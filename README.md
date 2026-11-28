@@ -1,6 +1,6 @@
-# PORTADESIGN 3D (PortaCraft) 🏗️
+# MyPrefabRoom 3D 🏗️
 
-> **100% Offline-Capable, $0-Cost, Production-Ready Gamified 3D Portacabin Configurator, Multi-Vendor Marketplace, and AI-Assisted Catalog Platform.**
+> **100% Offline-Capable, $0-Cost, Production-Ready Gamified 3D Prefab Room Configurator, Multi-Vendor Marketplace, and Local HITL SEO Content Platform.**
 
 Built with Next.js (App Router), TypeScript, Tailwind CSS, React Three Fiber (Three.js), Zustand, Prisma ORM with SQLite, NextAuth.js, and local Ollama AI.
 
@@ -45,8 +45,8 @@ Built with Next.js (App Router), TypeScript, Tailwind CSS, React Three Fiber (Th
 ### Installation
 ```bash
 # Clone the repository
-git clone https://github.com/THEabhikmaitra/portadesign.git
-cd portadesign
+git clone https://github.com/THEabhikmaitra/myprefabroom.git
+cd myprefabroom
 
 # Install dependencies
 npm install

@@ -22,14 +22,16 @@ import {
   Trash2,
   BarChart3,
   MessageSquare,
+  FileText,
 } from "lucide-react";
 import {
   AdminElementsPanel,
   AdminAttributesPanel,
   AdminPresetsAndRatesPanel,
 } from "@/components/admin/AdminCatalogPanels";
+import { AdminSeoEnginePanel } from "@/components/admin/AdminSeoEnginePanel";
 
-type AdminTab = "overview" | "vendors" | "ads" | "users" | "elements" | "attributes" | "presets";
+type AdminTab = "overview" | "vendors" | "ads" | "users" | "elements" | "attributes" | "presets" | "seo";
 
 export default function AdminPortalPage() {
   const [activeTab, setActiveTab] = useState<AdminTab>("overview");
@@ -221,6 +223,7 @@ export default function AdminPortalPage() {
               ["elements", `Modules + AI (${elements.length})`, Box],
               ["attributes", `Attributes + Shaders (${attributes.length})`, Layers],
               ["presets", "Presets, Missions & Rates", Sliders],
+              ["seo", "SEO Content Engine (5k+ HITL)", FileText],
             ] as const
           ).map(([id, label, Icon]) => (
             <button
@@ -726,6 +729,9 @@ export default function AdminPortalPage() {
             onNotify={setStatusMsg}
           />
         )}
+
+        {/* TAB 8: LOCAL 5,000+ WORD SEO ENGINE + HITL + PUSH LIVE */}
+        {activeTab === "seo" && <AdminSeoEnginePanel onNotify={setStatusMsg} />}
       </main>
     </div>
   );

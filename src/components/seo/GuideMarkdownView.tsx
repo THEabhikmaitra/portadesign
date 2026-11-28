@@ -1,0 +1,186 @@
+import React from "react";
+import Link from "next/link";
+
+function renderInlineFormatting(text: string): React.ReactNode[] {
+  const parts: React.ReactNode[] = [];
+  const regex = /(\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  let k = 0;
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+    const token = match[0];
+    if (token.startsWith("**") && token.endsWith("**")) {
+      parts.push(
+        <strong key={`b-${k++}`} className="font-semibold text-white">
+          {token.slice(2, -2)}
+        </strong>
+      );
+    } else if (token.startsWith("[")) {
+      const m = token.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+      if (m) {
+        const href = m[2].startsWith("/") || m[2].startsWith("https://") ? m[2] : "/";
+        parts.push(
+          <Link key={`l-${k++}`} href={href} className="text-emerald-400 hover:text-emerald-300 underline underline-offset-4 font-medium">
+            {m[1]}
+          </Link>
+        );
+      } else {
+        parts.push(token);
+      }
+    }
+    lastIndex = regex.lastIndex;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+  return parts;
+}
+
+export const GuideMarkdownView: React.FC<{ markdown: string }> = ({ markdown }) => {
+  const lines = String(markdown || "").replace(/\r\n/g, "\n").split("\n");
+  const blocks: React.ReactNode[] = [];
+  let i = 0;
+  let keyCounter = 0;
+
+  while (i < lines.length) {
+    const raw = lines[i];
+    const line = raw.trim();
+
+    if (!line) {
+      i++;
+      continue;
+    }
+
+    // Markdown Table block
+    if (line.startsWith("|") && i + 1 < lines.length && lines[i + 1].trim().startsWith("|---")) {
+      const headerCells = line.split("|").map((c) => c.trim()).filter(Boolean);
+      i += 2; // skip header + separator
+      const rows: string[][] = [];
+      while (i < lines.length && lines[i].trim().startsWith("|")) {
+        rows.push(lines[i].trim().split("|").map((c) => c.trim()).filter(Boolean));
+        i++;
+      }
+      blocks.push(
+        <div key={`tbl-${keyCounter++}`} className="my-5 overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/70">
+          <table className="w-full text-left border-collapse text-xs sm:text-sm">
+            <thead className="bg-slate-800/80 text-slate-200">
+              <tr>
+                {headerCells.map((h, idx) => (
+                  <th key={idx} className="px-4 py-3 font-bold border-b border-slate-700 whitespace-nowrap">
+                    {renderInlineFormatting(h)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/80 text-slate-300">
+              {rows.map((r, rIdx) => (
+                <tr key={rIdx} className="hover:bg-slate-800/30">
+                  {headerCells.map((_, cIdx) => (
+                    <td key={cIdx} className="px-4 py-2.5 align-top">
+                      {renderInlineFormatting(r[cIdx] || "")}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+      continue;
+    }
+
+    // Headings
+    if (line.startsWith("### ")) {
+      blocks.push(
+        <h3 key={`h3-${keyCounter++}`} className="text-lg font-bold text-cyan-300 mt-6 mb-2.5">
+          {renderInlineFormatting(line.slice(4))}
+        </h3>
+      );
+      i++;
+      continue;
+    }
+
+    if (line.startsWith("#### ")) {
+      blocks.push(
+        <h4 key={`h4-${keyCounter++}`} className="text-base font-bold text-white mt-4 mb-2">
+          {renderInlineFormatting(line.slice(5))}
+        </h4>
+      );
+      i++;
+      continue;
+    }
+
+    // Blockquote
+    if (line.startsWith("> ")) {
+      const quoteLines: string[] = [];
+      while (i < lines.length && lines[i].trim().startsWith("> ")) {
+        quoteLines.push(lines[i].trim().slice(2));
+        i++;
+      }
+      blocks.push(
+        <blockquote
+          key={`bq-${keyCounter++}`}
+          className="my-4 p-4 rounded-2xl border-l-4 border-emerald-400 bg-emerald-500/10 text-slate-200 text-sm leading-relaxed"
+        >
+          {renderInlineFormatting(quoteLines.join(" "))}
+        </blockquote>
+      );
+      continue;
+    }
+
+    // Bullet / Numbered list
+    if (/^([-*]|\d+\.)\s+/.test(line)) {
+      const ordered = /^\d+\./.test(line);
+      const listItems: string[] = [];
+      while (i < lines.length && /^([-*]|\d+\.)\s+/.test(lines[i].trim())) {
+        listItems.push(lines[i].trim().replace(/^([-*]|\d+\.)\s+/, ""));
+        i++;
+      }
+      const ListTag = ordered ? "ol" : "ul";
+      blocks.push(
+        <ListTag
+          key={`list-${keyCounter++}`}
+          className={`my-3 pl-5 space-y-2 text-slate-300 text-sm sm:text-base leading-relaxed ${
+            ordered ? "list-decimal" : "list-disc"
+          }`}
+        >
+          {listItems.map((item, idx) => (
+            <li key={idx}>{renderInlineFormatting(item)}</li>
+          ))}
+        </ListTag>
+      );
+      continue;
+    }
+
+    // Paragraph
+    const paraLines: string[] = [];
+    while (
+      i < lines.length &&
+      lines[i].trim() !== "" &&
+      !lines[i].trim().startsWith("#") &&
+      !lines[i].trim().startsWith("|") &&
+      !lines[i].trim().startsWith("> ") &&
+      !/^([-*]|\d+\.)\s+/.test(lines[i].trim())
+    ) {
+      paraLines.push(lines[i].trim());
+      i++;
+    }
+
+    if (paraLines.length > 0) {
+      blocks.push(
+        <p key={`p-${keyCounter++}`} className="my-3.5 text-slate-300 text-sm sm:text-base leading-7">
+          {renderInlineFormatting(paraLines.join(" "))}
+        </p>
+      );
+    } else {
+      i++;
+    }
+  }
+
+  return <div>{blocks}</div>;
+};

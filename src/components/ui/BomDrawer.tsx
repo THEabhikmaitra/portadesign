@@ -26,7 +26,7 @@ export const BomDrawer: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", `portadesign_bom_${Date.now()}.csv`);
+    link.setAttribute("download", `myprefabroom_bom_${Date.now()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

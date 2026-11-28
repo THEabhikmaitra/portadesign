@@ -27,6 +27,7 @@ import {
   MoreHorizontal,
   Sparkles,
   Truck,
+  BookOpen,
 } from "lucide-react";
 
 interface StudioToolbarProps {
@@ -98,10 +99,10 @@ export const StudioToolbar: React.FC<StudioToolbarProps> = ({
             title="Choose Room Type"
           >
             <div className="w-5 h-5 rounded-md bg-gradient-to-tr from-emerald-400 to-cyan-400 flex items-center justify-center text-slate-950 font-black text-[11px] shadow-sm">
-              P
+              M
             </div>
             <span className="font-extrabold text-xs tracking-wide text-white hidden sm:inline">
-              MyRoom <span className="text-emerald-400">3D</span>
+              MyPrefab<span className="text-emerald-400">Room</span>
             </span>
           </button>
 
@@ -303,8 +304,16 @@ export const StudioToolbar: React.FC<StudioToolbarProps> = ({
 
               <div className="my-1 border-t border-white/10" />
               <div className="px-3 py-1 text-[10px] font-bold text-slate-500 uppercase">
-                Partner & Admin
+                Guides & Partner
               </div>
+              <a
+                href="/guides"
+                onClick={() => setMoreOpen(false)}
+                className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl text-emerald-300 hover:text-white hover:bg-white/10 transition cursor-pointer"
+              >
+                <BookOpen className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Cost & Permit Guides</span>
+              </a>
               <a
                 href="/vendor"
                 onClick={() => setMoreOpen(false)}
@@ -314,19 +323,11 @@ export const StudioToolbar: React.FC<StudioToolbarProps> = ({
                 <span>Maker / Vendor Portal</span>
               </a>
               <a
-                href="/admin"
-                onClick={() => setMoreOpen(false)}
-                className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition cursor-pointer"
-              >
-                <Cpu className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Catalog Admin</span>
-              </a>
-              <a
                 href="/auth/signin"
                 onClick={() => setMoreOpen(false)}
                 className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition cursor-pointer"
               >
-                <Globe className="w-3.5 h-3.5 text-emerald-400" />
+                <Globe className="w-3.5 h-3.5 text-cyan-400" />
                 <span>Sign In / Register</span>
               </a>
             </div>

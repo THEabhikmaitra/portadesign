@@ -60,14 +60,14 @@ export const PurposePickerOverlay: React.FC = () => {
           </div>
         ) : catalogPresets.length === 0 ? (
           <div className="p-5 rounded-xl border border-white/10 bg-white/5 text-center space-y-2.5">
-            <div className="text-xs text-slate-400">No models uploaded yet</div>
-            <Link
-              href="/admin"
-              className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 text-xs font-semibold hover:bg-cyan-500/30 transition"
+            <div className="text-xs text-slate-400">No starter models ready yet</div>
+            <button
+              type="button"
+              onClick={() => setShowPurposePicker(false)}
+              className="inline-flex items-center px-3 py-1.5 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-semibold hover:bg-emerald-500/30 transition"
             >
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Admin Upload</span>
-            </Link>
+              Start on Open Plot
+            </button>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-2.5">
